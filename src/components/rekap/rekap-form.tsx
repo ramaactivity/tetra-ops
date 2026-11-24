@@ -18,6 +18,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { NumberedSection } from "@/components/operations/_shared/numbered-section";
@@ -28,6 +29,7 @@ import { SingleFileUpload } from "@/components/rekap/single-file-upload";
 import { useRekapDraft } from "@/components/rekap/use-rekap-draft";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import type { RekapContext } from "@/lib/actions/rekap";
@@ -1096,6 +1098,81 @@ export function RekapForm({
 	const proofUrlsHidden = proofUrls.join("\n");
 	const customMaterialsJson = JSON.stringify(customMaterials);
 
+	// Pengingat nota (owner 24 Nov 2026): biaya yang dibayar crew/uang jalan
+	// tanpa nota bikin owner menebak saat settle. Bukan pemblokir — crew boleh
+	// tetap kirim, tapi diingatkan sekali sebelum submit.
+	const tanpaNota = useMemo(() => {
+		const rows: Array<[string, number, PaidBy, string | null | undefined]> = [
+			[
+				"Transport",
+				transportMethod !== "none" ? Number(transportCost) || 0 : 0,
+				paidBy.transport,
+				notaUrls.transport,
+			],
+			[
+				"Bensin",
+				transportMethod === "rental" ? Number(bensinCost) || 0 : 0,
+				paidBy.bensin,
+				notaUrls.bensin,
+			],
+			["E-toll", Number(tollCost) || 0, paidBy.toll, notaUrls.toll],
+			["Parkir", Number(parkingCost) || 0, paidBy.parking, notaUrls.parking],
+			[
+				"Konsumsi",
+				Number(konsumsiCost) || 0,
+				paidBy.konsumsi,
+				notaUrls.konsumsi,
+			],
+			...lainnyaItems.map(
+				(r) =>
+					[r.note.trim() || "Lain-lain", r.amount || 0, r.paid_by, r.nota_url] as [
+						string,
+						number,
+						PaidBy,
+						string | null,
+					],
+			),
+		];
+		return rows
+			.filter(
+				([, amt, payer, nota]) =>
+					amt > 0 &&
+					!nota &&
+					!isOwnerPaid(payer) &&
+					paidFromAccountId(payer) === null,
+			)
+			.map(([label, amt]) => `${label} ${formatRupiah(amt)}`);
+	}, [
+		transportMethod,
+		transportCost,
+		bensinCost,
+		tollCost,
+		parkingCost,
+		konsumsiCost,
+		lainnyaItems,
+		paidBy,
+		notaUrls,
+	]);
+	const confirm = useConfirm();
+	const notaOkRef = useRef(false);
+	async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+		if (!isCrew || tanpaNota.length === 0 || notaOkRef.current) {
+			notaOkRef.current = false;
+			return;
+		}
+		e.preventDefault();
+		const form = e.currentTarget;
+		const ok = await confirm({
+			title: `${tanpaNota.length} biaya belum ada notanya`,
+			description: `${tanpaNota.join(", ")}. Foto struk/nota bantu owner mengganti uangmu dengan benar. Kalau memang tidak ada nota, tetap boleh dikirim.`,
+			confirmLabel: "Kirim tanpa nota",
+			cancelLabel: "Upload nota dulu",
+		});
+		if (!ok) return;
+		notaOkRef.current = true;
+		form.requestSubmit();
+	}
+
 	// Submit gate — surface the blocker BEFORE submit (in the sticky bar) instead
 	// of letting the server reject it. Cetak first (the core number), then proof.
 	const submitBlock =
@@ -1118,7 +1195,11 @@ export function RekapForm({
 
 	return (
 		<PayerOwnersContext.Provider value={context.owners ?? []}>
-			<form action={formAction} className="space-y-5 pb-2">
+			<form
+				action={formAction}
+				onSubmit={onSubmit}
+				className="space-y-5 pb-2"
+			>
 				{/* Auto-save indicator — reassures crew the form survives an app close */}
 				{saveState !== "idle" && !state?.success && (
 					<p className="flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
@@ -1736,11 +1817,12 @@ export function RekapForm({
 									/>
 									<div className="space-y-1">
 										<p className="font-medium text-foreground">
-											Nominal sewa mobil akan diisi owner.
+											Sewa mobil dibayar owner — nominalnya diisi owner.
 										</p>
 										<p>
 											Kamu cukup pilih &ldquo;Sewa mobil&rdquo; dan isi bensin
-											di bawah. Kalau ada nota/struk sewa, boleh di-upload.
+											di bawah. Kalau ternyata kamu yang membayar sewanya, kabari owner
+											supaya uangmu diganti.
 										</p>
 									</div>
 								</div>
@@ -2634,7 +2716,7 @@ function PayerPicker({
 		opts: Array<{ key: PaidBy; label: string }>;
 	}> = [
 		{
-			title: "Uang crew / uang jalan",
+			title: "Pakai uang sendiri / uang jalan",
 			tone: "crew",
 			opts: crew.map((c) => ({ key: c.user_id, label: c.name })),
 		},
