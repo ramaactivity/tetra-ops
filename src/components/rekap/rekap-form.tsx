@@ -88,6 +88,8 @@ type Defaults = {
 	toll_cost: string;
 	parking_cost: string;
 	konsumsi_cost: string;
+	/** Tambahan jam di lokasi (extend hari H), "0" = tidak ada. */
+	extend_jam?: string;
 	lainnya_items: string; // JSON string of [{note, amount, paid_by?}]
 	/** JSON map {transport|bensin|toll|parking|konsumsi: 'crew'|'owner'}. */
 	expense_paid_by?: string;
@@ -145,6 +147,7 @@ const EMPTY: Defaults = {
 	toll_cost: "0",
 	parking_cost: "0",
 	konsumsi_cost: "0",
+	extend_jam: "0",
 	lainnya_items: "[]",
 	expense_paid_by: "{}",
 	expense_nota_urls: "{}",
@@ -350,6 +353,7 @@ export function RekapForm({
 	const [tollCost, setTollCost] = useState(get("toll_cost"));
 	const [parkingCost, setParkingCost] = useState(get("parking_cost"));
 	const [konsumsiCost, setKonsumsiCost] = useState(get("konsumsi_cost"));
+	const [extendJam, setExtendJam] = useState(get("extend_jam") || "0");
 
 	type LainnyaRow = {
 		note: string;
@@ -724,6 +728,7 @@ export function RekapForm({
 			toll_cost: tollCost,
 			parking_cost: parkingCost,
 			konsumsi_cost: konsumsiCost,
+			extend_jam: extendJam,
 			lainnya_items: JSON.stringify(lainnyaItems),
 			expense_paid_by: expensePaidByJson,
 		}),
@@ -742,6 +747,7 @@ export function RekapForm({
 			tollCost,
 			parkingCost,
 			konsumsiCost,
+			extendJam,
 			lainnyaItems,
 			expensePaidByJson,
 		],
@@ -828,6 +834,8 @@ export function RekapForm({
 		if (prk !== null) setParkingCost(prk);
 		const ksm = numeric("konsumsi_cost");
 		if (ksm !== null) setKonsumsiCost(ksm);
+		const ext = numeric("extend_jam");
+		if (ext !== null) setExtendJam(ext);
 		const li = restoredValues.lainnya_items;
 		if (li) {
 			try {
@@ -1023,7 +1031,8 @@ export function RekapForm({
 		!isCrew ||
 		photomagnetPaid + photomagnetBonus + keychainPaid + keychainBonus > 0 ||
 		Number(photomagnet) > 0 ||
-		Number(keychain) > 0;
+		Number(keychain) > 0 ||
+		Number(extendJam) > 0;
 	// Sisa uang jalan > 0 → pilihan potong fee / kembalikan berlaku.
 	const ujSisaAda = (Number(ujTerima) || 0) - holderSpent > 0;
 	const transportSectionOpen =
@@ -1575,8 +1584,8 @@ export function RekapForm({
 				{/* ========== ADD-ON ========== */}
 				<NumberedSection
 					step={3}
-					title="Add-on"
-					description="Photomagnet / keychain — jumlah yang dipakai (berbayar + bonus)."
+					title="Add-on & tambahan jam"
+					description="Photomagnet / keychain yang dipakai, dan tambahan jam kalau acara diperpanjang di lokasi."
 					defaultOpen={addonSectionOpen}
 				>
 					<div className="grid gap-4 sm:grid-cols-2">
@@ -1618,6 +1627,34 @@ export function RekapForm({
 									: fieldStock("keychain_used", Number(keychain) || 0)
 							}
 						/>
+					</div>
+					{/* Extend hari H — owner menagihkannya ke klien dari halaman rekap. */}
+					<div className="mt-4 space-y-2">
+						<p className="text-fluid-body font-medium">
+							Acara diperpanjang di lokasi?
+						</p>
+						<div className="grid grid-cols-5 gap-2">
+							{["0", "1", "2", "3", "4"].map((v) => (
+								<button
+									key={v}
+									type="button"
+									aria-pressed={extendJam === v}
+									onClick={() => setExtendJam(v)}
+									className={`rounded-full border px-2 py-2 text-fluid-caption font-semibold transition-colors ${
+										extendJam === v
+											? "border-primary bg-primary/10 text-foreground"
+											: "border-border-default bg-surface-3 text-muted-foreground hover:bg-muted"
+									}`}
+								>
+									{v === "0" ? "Tidak" : `+${v} jam`}
+								</button>
+							))}
+						</div>
+						{Number(extendJam) > 0 ? (
+							<p className="text-[12px] text-muted-foreground">
+								Owner akan menagihkan {extendJam} jam tambahan ke klien.
+							</p>
+						) : null}
 					</div>
 				</NumberedSection>
 
@@ -2150,6 +2187,7 @@ export function RekapForm({
 				<input type="hidden" name="toll_cost" value={tollCost || "0"} />
 				<input type="hidden" name="parking_cost" value={parkingCost || "0"} />
 				<input type="hidden" name="konsumsi_cost" value={konsumsiCost || "0"} />
+				<input type="hidden" name="extend_jam" value={extendJam || "0"} />
 				<input type="hidden" name="lainnya_items" value={lainnyaItemsJson} />
 				<input type="hidden" name="expense_paid_by" value={expensePaidByJson} />
 				{/* Tanpa baris ini submit GAGAL total: server membaca

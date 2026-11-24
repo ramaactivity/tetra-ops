@@ -273,7 +273,7 @@ export const revisiEvent: AiTool = {
 		const offered = inv
 			? await offerSendToOwner(ctx.supabase, {
 					documentIds: [inv.id],
-					headerHtml: `✏️ <b>${tgEscape(String(p.ev.client_name))}</b> direvisi lewat agent:\n${dry.changes.join("\n")}\nInvoice <b>${inv.doc_number}</b> diperbarui (nomor sama) · sisa ${out.sisa_tagihan_baru}. Kirim ke klien?`,
+					headerHtml: `✏️ <b>${tgEscape(String(p.ev.client_name))}</b> direvisi ${ctx.surface === "web" ? "di app" : "lewat agent"}:\n${dry.changes.join("\n")}\nInvoice <b>${inv.doc_number}</b> diperbarui (nomor sama) · sisa ${out.sisa_tagihan_baru}. Kirim ke klien?`,
 				})
 			: null;
 		return {

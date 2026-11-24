@@ -42,6 +42,7 @@ import {
 } from "@/components/rekap/sales-commission-card";
 import { SettleButton } from "@/components/rekap/settle-button";
 import { SettledBanner } from "@/components/rekap/settled-banner";
+import { TagihkanExtendButton } from "@/components/rekap/tagihkan-extend-button";
 import {
 	type UangJalanLedgerRow,
 	UangJalanPanel,
@@ -66,6 +67,8 @@ import {
 	ownerIdOfPayer,
 	paidFromAccountId,
 } from "@/lib/finance/emoney";
+import { formatRupiah } from "@/lib/format";
+import { COMBO, EXTEND_2_CREW, EXTEND_3_CREW } from "@/lib/portal/core";
 import { catatPrefill, rekapExpenseItems } from "@/lib/rekap/expense-items";
 import { cekKesiapan } from "@/lib/rekap/kesiapan";
 import {
@@ -114,6 +117,7 @@ type RekapRow = {
 	toll_cost: number | string | null;
 	parking_cost: number | string | null;
 	konsumsi_cost: number | string | null;
+	extend_jam: number | null;
 	lainnya_items: Array<{
 		note: string;
 		amount: number;
@@ -183,7 +187,7 @@ export default async function EventRekapPage({
 			channel, vendor_name, vendor_commission_mode, vendor_commission_amount,
 			referrer_user_id, referrer_commission,
 			sales_user_id, direct_sales_commission, is_compliment, owner_pool_enabled,
-			transport_rental_cost`,
+			transport_rental_cost, service_type`,
 		)
 		.eq("project_id", projectId)
 		.maybeSingle();
@@ -203,7 +207,7 @@ export default async function EventRekapPage({
 					stock_committed_at, stock_movement_batch_id, hpp_snapshot_total, created_at,
 					transport_method, transport_cost,
 					transport_proof_berangkat_url, transport_proof_pulang_url,
-					bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
+					bensin_cost, toll_cost, parking_cost, konsumsi_cost, extend_jam, lainnya_items,
 					expense_paid_by, expense_nota_urls, submitted_by, uj_terima, uj_metode, uj_holder, uj_sisa, uj_bukti_url, uj_kembali_metode, uj_kembali_bukti_url, uj_rincian, uj_kembali_owner, uj_kembali_jumlah, uj_kembali_tanggal,
 					submitted_by_user:users!crew_rekap_submitted_by_fkey(full_name),
 					reviewer:users!crew_rekap_reviewed_by_fkey(full_name)`,
@@ -875,6 +879,7 @@ export default async function EventRekapPage({
 				toll_cost: String(rekap.toll_cost ?? 0),
 				parking_cost: String(rekap.parking_cost ?? 0),
 				konsumsi_cost: String(rekap.konsumsi_cost ?? 0),
+				extend_jam: String(rekap.extend_jam ?? 0),
 				lainnya_items: JSON.stringify(rekap.lainnya_items ?? []),
 				expense_paid_by: JSON.stringify(rekap.expense_paid_by ?? {}),
 				expense_nota_urls: JSON.stringify(rekap.expense_nota_urls ?? {}),
@@ -919,6 +924,22 @@ export default async function EventRekapPage({
 				nota: Boolean(notaUrl) || it.paidBy === "card",
 			};
 		});
+	// Extend hari H: laporan crew vs add-on Tambahan Durasi yang sudah ditagih.
+	const extendJam = Number(rekap?.extend_jam ?? 0);
+	const extendDitagihJam = context.paid_addons
+		.filter((a) => a.name === EXTEND_2_CREW || a.name === EXTEND_3_CREW)
+		.reduce((t, a) => t + a.quantity, 0);
+	const extendNama = COMBO.includes(String(event.service_type))
+		? EXTEND_3_CREW
+		: EXTEND_2_CREW;
+	const { data: extendAddon } =
+		extendJam > extendDitagihJam
+			? await supabase
+					.from("addons")
+					.select("price")
+					.eq("name", extendNama)
+					.maybeSingle()
+			: { data: null };
 	const kesiapan = rekap
 		? cekKesiapan({
 				projectId,
@@ -938,6 +959,8 @@ export default async function EventRekapPage({
 					)
 					.reduce((t, l) => t + l.amount, 0),
 				sisaTagihan: Number(event.remaining_balance ?? 0),
+				extendJam,
+				extendDitagih: extendDitagihJam >= extendJam,
 			})
 		: [];
 
@@ -1081,7 +1104,17 @@ export default async function EventRekapPage({
 			)}
 
 			{rekap && !isSettled && (
-				<KesiapanSettleCard cek={kesiapan} biaya={biayaKesiapan} />
+				<KesiapanSettleCard
+					cek={kesiapan}
+					biaya={biayaKesiapan}
+					extendAksi={
+						<TagihkanExtendButton
+							projectId={projectId}
+							jam={extendJam - extendDitagihJam}
+							harga={`${formatRupiah(Number(extendAddon?.price ?? 0))}/jam`}
+						/>
+					}
+				/>
 			)}
 
 			{/* === Approve/Reject section (review stage, not settled yet) === */}

@@ -149,7 +149,7 @@ export type Quote =
 export const EXTEND_2_CREW = "Tambahan Durasi 1 Jam";
 export const EXTEND_3_CREW = "Tambahan Durasi 1 Jam (3+ crew)";
 export const GUEST_CAM_PKG = "guest_cam";
-const COMBO = ["photostage_combo", "magazine_combo"];
+export const COMBO = ["photostage_combo", "magazine_combo"];
 const HAS_PRINTER = [
 	"photobooth_classic",
 	"photostage_combo",

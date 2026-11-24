@@ -1506,3 +1506,16 @@ Kartu Telegram + lonceng begitu bukti baru masuk, dengan tombol yang sama.
 2. Saat rekap disimpan, laporan langsung dibukukan (`syncUangJalanDariLaporan`, `uang_jalan.dari_laporan = true`). Sumber dana ikut aturan 14 Nov: owner pemegang rekening Tetra → rekening Tetra; owner lain → uang pribadi (hutang Tetra 2-310).
 3. Tidak dobel: yang dibukukan hanya selisih laporan vs catatan **manual** owner (`rencanaDariLaporan`). Catatan otomatis mengikuti laporan terbaru — owner memperbaiki pemberi/nominal lewat **Koreksi rekap**; catatan otomatis lama dibalik (jurnal pembalik) lalu dicatat ulang. Yang sudah terpotong fee/dikembalikan tidak disusun ulang (panel minta koreksi manual).
 4. Owner tetap bisa **Catat uang jalan** manual (crew lupa lapor) dan **Tambah bukti** di catatan transfer tanpa bukti.
+
+---
+
+## DR-061: Extend hari H dilaporkan crew, ditagihkan owner satu tap
+
+**Status:** Accepted (owner 2026-11-24: "fitur extend juga boleh tuh ditambahkan")
+**Date:** 2026-11-24
+
+### Decision
+1. Form rekap crew (bagian **Add-on & tambahan jam**) punya pilihan "Acara diperpanjang di lokasi?" Tidak / +1 … +4 jam → `crew_rekap.extend_jam` (laporan saja, bukan tagihan).
+2. Halaman rekap owner, kartu **Kesiapan settle**: kalau laporan crew > add-on Tambahan Durasi yang sudah ada di event → baris merah + tombol **Tagihkan N jam**. Tombol memakai inti `revisi_event` (sama dengan Hermes & Edit booking): add-on "Tambahan Durasi 1 Jam" (paket combo: "(3+ crew)", DR-041) ditambah, invoice/nota aktif diperbarui nomor sama, lalu **ditawarkan** ke owner untuk dikirim — tidak pernah terkirim otomatis.
+3. Tambahan jam **sebelum** acara tetap ganti paket (2 → 3 jam), bukan add-on ini.
+4. Event yang sudah di-settle tidak bisa ditagihkan lewat tombol ini (buka settlement dulu), sama dengan `revisi_event`.

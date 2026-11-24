@@ -139,7 +139,7 @@ export function cekKesiapan(i: KesiapanInput): Cek[] {
 						level: "perlu",
 						judul: `Crew lapor tambahan ${i.extendJam} jam di lokasi, belum ditagihkan`,
 						detail:
-							"Tambahkan ke tagihan klien di kartu Tambahan jam di bawah.",
+							"Tagihkan ke klien — invoice ikut diperbarui, kamu yang memutuskan kirim.",
 					},
 		);
 

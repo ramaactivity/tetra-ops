@@ -36,6 +36,7 @@ type RekapRow = {
 	toll_cost: number | string | null;
 	parking_cost: number | string | null;
 	konsumsi_cost: number | string | null;
+	extend_jam: number | null;
 	lainnya_items: Array<{
 		note: string;
 		amount: number;
@@ -105,7 +106,7 @@ export default async function CrewRekapPage({
 			proof_photo_urls, crew_notes, is_approved, reviewed_at, review_notes,
 			transport_method, transport_cost,
 			transport_proof_berangkat_url, transport_proof_pulang_url,
-			bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
+			bensin_cost, toll_cost, parking_cost, konsumsi_cost, extend_jam, lainnya_items,
 			expense_paid_by, expense_nota_urls, uj_terima, uj_metode, uj_holder, uj_sisa, uj_bukti_url, uj_kembali_metode, uj_kembali_bukti_url, uj_rincian, uj_kembali_owner, uj_kembali_jumlah, uj_kembali_tanggal`,
 		)
 		.eq("event_id", event.id)
@@ -196,6 +197,7 @@ export default async function CrewRekapPage({
 				toll_cost: String(rekap.toll_cost ?? 0),
 				parking_cost: String(rekap.parking_cost ?? 0),
 				konsumsi_cost: String(rekap.konsumsi_cost ?? 0),
+				extend_jam: String(rekap.extend_jam ?? 0),
 				lainnya_items: JSON.stringify(rekap.lainnya_items ?? []),
 				expense_paid_by: JSON.stringify(rekap.expense_paid_by ?? {}),
 				expense_nota_urls: JSON.stringify(rekap.expense_nota_urls ?? {}),

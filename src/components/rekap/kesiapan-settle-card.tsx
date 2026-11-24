@@ -5,6 +5,7 @@ import {
 	ClipboardCheck,
 } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { formatRupiah } from "@/lib/format";
 import type { Cek } from "@/lib/rekap/kesiapan";
 import { RekapCard, SectionHeader } from "./rekap-ui";
@@ -23,6 +24,7 @@ const ICON = {
 export function KesiapanSettleCard({
 	cek,
 	biaya,
+	extendAksi,
 }: {
 	cek: Cek[];
 	biaya: Array<{
@@ -31,6 +33,8 @@ export function KesiapanSettleCard({
 		payer: string;
 		notaUrl: string | null;
 	}>;
+	/** Tombol tagihkan extend — tampil di baris "extend" yang belum ditagih. */
+	extendAksi?: ReactNode;
 }) {
 	const perlu = cek.filter((c) => c.level === "perlu").length;
 	const dicek = cek.filter((c) => c.level === "cek").length;
@@ -70,7 +74,9 @@ export function KesiapanSettleCard({
 									</p>
 								) : null}
 							</div>
-							{c.href && c.aksi ? (
+							{c.key === "extend" && c.level === "perlu" && extendAksi ? (
+								extendAksi
+							) : c.href && c.aksi ? (
 								<Link
 									href={c.href}
 									className="ml-6.5 shrink-0 rounded-full border border-border-default px-3 py-1 text-[12px] font-medium hover:bg-secondary sm:ml-0"
