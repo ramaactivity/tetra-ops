@@ -251,7 +251,7 @@ export default async function CrewRekapPage({
 				{rekap?.is_approved === false && rekap.review_notes && (
 					<div className="space-y-1 rounded-2xl border border-rose-200 bg-rose-50/50 p-3 dark:border-rose-900 dark:bg-rose-950/20">
 						<p className="text-rose-900 dark:text-rose-200 text-[11px] font-semibold uppercase tracking-wider">
-							Owner minta revisi
+							Dikembalikan owner — tolong dibetulkan
 						</p>
 						<p className="text-foreground/80 text-xs leading-relaxed">
 							{rekap.review_notes}
@@ -264,7 +264,7 @@ export default async function CrewRekapPage({
 						<div className="flex items-center gap-2">
 							<CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
 							<p className="text-foreground text-sm font-medium">
-								Rekap sudah di-approve
+								Rekap sudah disetujui owner
 							</p>
 						</div>
 						<dl className="grid grid-cols-2 gap-3 text-xs">
@@ -337,7 +337,7 @@ export default async function CrewRekapPage({
 							</div>
 						)}
 						<p className="text-muted-foreground text-[10px] italic">
-							Sudah approved — gak bisa di-edit lagi.
+							Sudah disetujui — tidak bisa diubah lagi.
 						</p>
 					</div>
 				) : (

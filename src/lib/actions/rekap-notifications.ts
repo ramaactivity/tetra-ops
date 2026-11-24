@@ -138,15 +138,15 @@ export async function notifyRekapReviewed(
 		const base = approved
 			? {
 					severity: "success" as const,
-					title: `Rekap di-approve: ${name}`,
-					body: "Rekap kamu sudah di-approve owner. 🎉",
+					title: `Rekap disetujui: ${name}`,
+					body: "Rekap kamu sudah disetujui owner. 🎉",
 				}
 			: {
 					severity: "warning" as const,
-					title: `Rekap perlu revisi: ${name}`,
+					title: `Rekap dikembalikan: ${name}`,
 					body: reviewNotes
 						? `Catatan owner: ${reviewNotes}`
-						: "Owner minta rekap direvisi. Tap untuk update.",
+						: "Owner minta rekap dibetulkan. Tap untuk membuka.",
 				};
 		await insertFor(admin, recipients, {
 			...base,

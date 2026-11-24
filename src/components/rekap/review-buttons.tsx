@@ -65,7 +65,7 @@ export function RekapReviewButtons({
 			if (result.error) {
 				toast.error(result.error);
 			} else {
-				toast.info("Rekap dikembalikan ke crew untuk revisi");
+				toast.info("Rekap dikembalikan ke crew — crew dapat notifikasi");
 			}
 		});
 	}
@@ -76,7 +76,7 @@ export function RekapReviewButtons({
 			if (result.error) {
 				toast.error(result.error);
 			} else {
-				toast.info("Rekap di-reopen");
+				toast.info("Rekap dibuka lagi");
 			}
 		});
 	}
@@ -90,10 +90,10 @@ export function RekapReviewButtons({
 						Rekap disetujui
 					</p>
 					<p className="text-emerald-700/80 dark:text-emerald-300/80 text-xs">
-						Settlement bisa di-tutup buku dengan data ini.
+						Settle bisa dijalankan dengan data ini.
 						{stockCommittedAt
-							? " 📦 Stock auto-deducted on approval."
-							: " (Stock movements tidak ter-emit — auto-deduct off atau mapping kosong saat approval.)"}
+							? " Stok sudah berkurang sesuai rekap."
+							: " Stok belum berkurang — pemotongan otomatis mati atau bahan belum dipetakan."}
 					</p>
 				</div>
 				<button
@@ -104,7 +104,7 @@ export function RekapReviewButtons({
 					className="text-muted-foreground hover:text-foreground inline-flex h-7 items-center gap-1 rounded text-xs underline-offset-2 hover:underline"
 				>
 					<RotateCcw className="h-3 w-3" />
-					Re-open
+					Buka lagi
 				</button>
 			</div>
 		);

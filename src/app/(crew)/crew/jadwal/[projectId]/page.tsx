@@ -921,7 +921,7 @@ export default async function CrewEventDetailPage({
 								{rekap?.is_approved === true
 									? "Owner sudah approve. Lihat detail."
 									: rekap?.is_approved === false
-										? "Owner minta revisi — buka untuk update."
+										? "Dikembalikan owner — buka untuk dibetulkan."
 										: rekap
 											? "Sedang di-review owner. Lihat data submit."
 											: isPastOrToday

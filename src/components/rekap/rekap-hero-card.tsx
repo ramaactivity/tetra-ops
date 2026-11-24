@@ -203,7 +203,7 @@ function StatusBadge({
 		return (
 			<span className={`${base} bg-white/20 text-white`}>
 				<CheckCircle2 className="size-3.5" aria-hidden />
-				Approved
+				Disetujui
 			</span>
 		);
 	}
@@ -211,14 +211,14 @@ function StatusBadge({
 		return (
 			<span className={`${base} bg-white text-rose-600`}>
 				<XCircle className="size-3.5" aria-hidden />
-				Perlu revisi
+				Dikembalikan
 			</span>
 		);
 	}
 	return (
 		<span className={`${base} bg-white/15 text-white`}>
 			<Clock className="size-3.5" aria-hidden />
-			Menunggu review
+			Menunggu dicek owner
 		</span>
 	);
 }
