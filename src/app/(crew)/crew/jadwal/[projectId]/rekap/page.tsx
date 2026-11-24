@@ -54,6 +54,9 @@ type RekapRow = {
 	uj_kembali_metode: string | null;
 	uj_kembali_bukti_url: string | null;
 	uj_rincian: unknown;
+	uj_kembali_owner: string | null;
+	uj_kembali_jumlah: number | null;
+	uj_kembali_tanggal: string | null;
 };
 
 export default async function CrewRekapPage({
@@ -103,7 +106,7 @@ export default async function CrewRekapPage({
 			transport_method, transport_cost,
 			transport_proof_berangkat_url, transport_proof_pulang_url,
 			bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
-			expense_paid_by, expense_nota_urls, uj_terima, uj_metode, uj_holder, uj_sisa, uj_bukti_url, uj_kembali_metode, uj_kembali_bukti_url, uj_rincian`,
+			expense_paid_by, expense_nota_urls, uj_terima, uj_metode, uj_holder, uj_sisa, uj_bukti_url, uj_kembali_metode, uj_kembali_bukti_url, uj_rincian, uj_kembali_owner, uj_kembali_jumlah, uj_kembali_tanggal`,
 		)
 		.eq("event_id", event.id)
 		.maybeSingle();
@@ -204,6 +207,12 @@ export default async function CrewRekapPage({
 				uj_kembali_metode: rekap.uj_kembali_metode ?? "",
 				uj_kembali_bukti_url: rekap.uj_kembali_bukti_url ?? "",
 				uj_rincian: rekap.uj_rincian ? JSON.stringify(rekap.uj_rincian) : "",
+				uj_kembali_owner: rekap.uj_kembali_owner ?? "",
+				uj_kembali_jumlah:
+					rekap.uj_kembali_jumlah != null
+						? String(rekap.uj_kembali_jumlah)
+						: "",
+				uj_kembali_tanggal: rekap.uj_kembali_tanggal ?? "",
 			}
 		: undefined;
 

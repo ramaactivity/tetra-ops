@@ -5,6 +5,7 @@ import {
 	pegangRekeningTetra,
 	potongFee,
 	rencanaDariLaporan,
+	rencanaKembali,
 	rincianTerbuka,
 	ringkasUangJalan,
 	saldoTalanganOwner,
@@ -263,4 +264,41 @@ test("laporan crew → yang masih perlu dibukukan (tanpa dobel)", () => {
 		),
 		[],
 	);
+});
+
+test("pengembalian sisa dari laporan crew", () => {
+	const R = "rama";
+	const A = "adit";
+	// lapor kembali 81rb ke Rama, belum ada catatan → catat
+	assert.deepEqual(rencanaKembali({ owner_id: R, amount: 81_000 }, 0, []), {
+		susunUlang: false,
+		catat: { owner_id: R, amount: 81_000 },
+	});
+	// sudah tercatat otomatis sama → tidak ada
+	assert.deepEqual(
+		rencanaKembali({ owner_id: R, amount: 81_000 }, 0, [
+			{ owner_id: R, amount: 81_000 },
+		]),
+		{ susunUlang: false, catat: null },
+	);
+	// owner sudah Terima sisa manual 81rb → tidak dobel
+	assert.deepEqual(
+		rencanaKembali({ owner_id: R, amount: 81_000 }, 81_000, []),
+		{
+			susunUlang: false,
+			catat: null,
+		},
+	);
+	// koreksi nominal / penerima → susun ulang
+	assert.deepEqual(
+		rencanaKembali({ owner_id: A, amount: 80_000 }, 0, [
+			{ owner_id: R, amount: 81_000 },
+		]),
+		{ susunUlang: true, catat: { owner_id: A, amount: 80_000 } },
+	);
+	// laporan dihapus (ganti ke potong fee) → catatan otomatis dibalik
+	assert.deepEqual(rencanaKembali(null, 0, [{ owner_id: R, amount: 81_000 }]), {
+		susunUlang: true,
+		catat: null,
+	});
 });

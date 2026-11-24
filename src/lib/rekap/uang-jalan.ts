@@ -248,3 +248,27 @@ export function rencanaDariLaporan(
 	});
 	return out;
 }
+
+/**
+ * Pengembalian sisa yang dilaporkan crew vs catatan "kembali" yang ada.
+ * Catatan manual owner dihormati (yang dibukukan = laporan − manual); catatan
+ * otomatis lama disusun ulang kalau tidak sama dengan yang seharusnya.
+ */
+export function rencanaKembali(
+	laporan: { owner_id: string; amount: number } | null,
+	manualTotal: number,
+	otomatis: ReadonlyArray<{ owner_id: string | null; amount: number }>,
+): { susunUlang: boolean; catat: { owner_id: string; amount: number } | null } {
+	const amt = laporan ? Math.max(0, laporan.amount - manualTotal) : 0;
+	const catat =
+		laporan && amt > 0 ? { owner_id: laporan.owner_id, amount: amt } : null;
+	const sama =
+		(catat === null && otomatis.length === 0) ||
+		(catat !== null &&
+			otomatis.length === 1 &&
+			otomatis[0].owner_id === catat.owner_id &&
+			otomatis[0].amount === catat.amount);
+	return sama
+		? { susunUlang: false, catat: null }
+		: { susunUlang: otomatis.length > 0, catat };
+}

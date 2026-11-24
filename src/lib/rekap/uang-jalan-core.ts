@@ -11,6 +11,7 @@ import { insufficientBalanceError } from "@/lib/finance/balance-guard";
 import {
 	pegangRekeningTetra,
 	rencanaDariLaporan,
+	rencanaKembali,
 	TALANGAN_OWNER_COA,
 } from "@/lib/rekap/uang-jalan";
 import { saldoUangJalanDb } from "@/lib/rekap/uang-jalan-db";
@@ -333,7 +334,9 @@ export async function syncUangJalanDariLaporan(
 	] = await Promise.all([
 		db
 			.from("crew_rekap")
-			.select("uj_rincian, uj_holder")
+			.select(
+				"uj_rincian, uj_holder, uj_sisa, uj_kembali_owner, uj_kembali_jumlah, uj_kembali_tanggal, uj_kembali_metode, uj_kembali_bukti_url",
+			)
 			.eq("event_id", eventId)
 			.maybeSingle(),
 		db
@@ -343,9 +346,11 @@ export async function syncUangJalanDariLaporan(
 			.maybeSingle(),
 		db
 			.from("uang_jalan")
-			.select("id, user_id, owner_id, amount, proof_url, journal_id, dari_laporan")
+			.select(
+				"id, user_id, kind, owner_id, amount, proof_url, journal_id, dari_laporan",
+			)
 			.eq("event_id", eventId)
-			.eq("kind", "beri")
+			.in("kind", ["beri", "kembali"])
 			.eq("is_reversed", false),
 		db
 			.from("users")
@@ -362,9 +367,11 @@ export async function syncUangJalanDariLaporan(
 		(r) => r?.owner_id && Number(r.amount) > 0,
 	);
 	const holder = rk?.uj_holder as string | null | undefined;
-	if (!rows.length || !holder || !ev) return { dicatat: 0, catatan };
+	if (!holder || !ev) return { dicatat: 0, catatan };
 
-	const mine = (ledger ?? []).filter((l) => l.user_id === holder);
+	const mine = (ledger ?? []).filter(
+		(l) => l.user_id === holder && l.kind === "beri",
+	);
 	// Catatan otomatis milik laporan: dihitung ulang dari catatan MANUAL owner
 	// saja, lalu disusun ulang kalau laporan (pemberi/nominal) berubah —
 	// owner mengoreksi lewat Koreksi rekap (owner 24 Nov 2026).
@@ -478,5 +485,75 @@ export async function syncUangJalanDariLaporan(
 				.update({ proof_url: r.bukti_url })
 				.eq("id", tanpaBukti.id);
 	}
+	// ── Sisa dikembalikan crew (owner 24 Nov 2026): ke owner siapa, berapa. ──
+	const kembali = (ledger ?? []).filter(
+		(l) => l.user_id === holder && l.kind === "kembali",
+	);
+	const lapKembali =
+		rk?.uj_sisa === "kembalikan" &&
+		rk.uj_kembali_owner &&
+		Number(rk.uj_kembali_jumlah) > 0
+			? {
+					owner_id: rk.uj_kembali_owner as string,
+					amount: Number(rk.uj_kembali_jumlah),
+				}
+			: null;
+	const rk2 = rencanaKembali(
+		lapKembali,
+		kembali
+			.filter((l) => !l.dari_laporan)
+			.reduce((t, l) => t + Number(l.amount), 0),
+		kembali
+			.filter((l) => l.dari_laporan)
+			.map((l) => ({
+				owner_id: (l.owner_id as string | null) ?? null,
+				amount: Number(l.amount),
+			})),
+	);
+	let bolehCatat = true;
+	if (rk2.susunUlang)
+		for (const l of kembali.filter((x) => x.dari_laporan)) {
+			const err = await balikJurnal(db, l.journal_id as string, {
+				description: "Koreksi laporan pengembalian uang jalan crew",
+				sourceType: "uang_jalan_reversal",
+				eventId,
+				amount: Number(l.amount),
+				by: actorId,
+			});
+			if (err) {
+				catatan.push(err);
+				bolehCatat = false;
+				break;
+			}
+			await db.from("uang_jalan").update({ is_reversed: true }).eq("id", l.id);
+		}
+	if (bolehCatat && rk2.catat) {
+		const o = (owners ?? []).find((x) => x.id === rk2.catat?.owner_id);
+		if (!o) catatan.push("penerima pengembalian bukan owner aktif");
+		else {
+			const rekTetra = pegangRekeningTetra(o.full_name as string, holderNames);
+			const tgl = (rk?.uj_kembali_tanggal as string | null) ?? today;
+			const res = await postUangJalan(
+				db,
+				actorId,
+				"kembali",
+				{
+					eventId,
+					projectId: ev.project_id,
+					userId: holder,
+					amount: rk2.catat.amount,
+					accountCode: rekTetra ? tetraCoa : TALANGAN_OWNER_COA,
+					ownerId: o.id,
+					pribadi: !rekTetra,
+					method: rk?.uj_kembali_metode === "transfer" ? "transfer" : "tunai",
+					proofUrl: (rk?.uj_kembali_bukti_url as string | null) || null,
+					date: tgl > today ? today : tgl,
+				},
+				{ dariLaporan: true },
+			);
+			if (!res.ok) catatan.push(res.error);
+		}
+	}
+
 	return { dicatat, catatan };
 }

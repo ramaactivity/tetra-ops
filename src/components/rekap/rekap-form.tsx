@@ -101,6 +101,9 @@ type Defaults = {
 	uj_kembali_bukti_url?: string;
 	/** JSON [{owner_id, amount, method, tanggal, bukti_url}] — per pemberi. */
 	uj_rincian?: string;
+	uj_kembali_owner?: string;
+	uj_kembali_jumlah?: string;
+	uj_kembali_tanggal?: string;
 };
 
 /**
@@ -549,6 +552,19 @@ export function RekapForm({
 	);
 	const [ujKembaliBukti, setUjKembaliBukti] = useState<string | null>(
 		defaults.uj_kembali_bukti_url || null,
+	);
+	// Kembalikan sisa (owner 24 Nov 2026): langsung dibukukan, jadi penerima,
+	// jumlah, dan tanggalnya ikut diisi crew. Jumlah kosong = sisa terhitung.
+	const [ujKembaliOwner, setUjKembaliOwner] = useState(
+		defaults.uj_kembali_owner || "",
+	);
+	const [ujKembaliJumlah, setUjKembaliJumlah] = useState(
+		Number(defaults.uj_kembali_jumlah ?? 0) > 0
+			? String(Number(defaults.uj_kembali_jumlah))
+			: "",
+	);
+	const [ujKembaliTanggal, setUjKembaliTanggal] = useState(
+		defaults.uj_kembali_tanggal || new Date().toLocaleDateString("en-CA"),
 	);
 	// Uang jalan aktif → biaya yang "belum dipilih siapa yang bayar" otomatis
 	// dibayar pemegang uang jalan (paling sering memang begitu).
@@ -1965,6 +1981,13 @@ export function RekapForm({
 									onKembaliMetode={setUjKembaliMetode}
 									kembaliBukti={ujKembaliBukti}
 									onKembaliBukti={setUjKembaliBukti}
+									owners={context.owners ?? []}
+									kembaliOwner={ujKembaliOwner}
+									onKembaliOwner={setUjKembaliOwner}
+									kembaliJumlah={ujKembaliJumlah}
+									onKembaliJumlah={setUjKembaliJumlah}
+									kembaliTanggal={ujKembaliTanggal}
+									onKembaliTanggal={setUjKembaliTanggal}
 								/>
 							)}
 						</div>
@@ -2045,6 +2068,28 @@ export function RekapForm({
 							: ""
 					}
 				/>
+				{ujAda && ujSisaAda && ujSisa === "kembalikan" ? (
+					<>
+						<input
+							type="hidden"
+							name="uj_kembali_owner"
+							value={ujKembaliOwner}
+						/>
+						<input
+							type="hidden"
+							name="uj_kembali_jumlah"
+							value={
+								ujKembaliJumlah ||
+								String(Math.max(0, (Number(ujTerima) || 0) - holderSpent))
+							}
+						/>
+						<input
+							type="hidden"
+							name="uj_kembali_tanggal"
+							value={ujKembaliTanggal}
+						/>
+					</>
+				) : null}
 
 				{/* ========== BUKTI ========== */}
 				<NumberedSection
@@ -3039,6 +3084,13 @@ function UangJalanRingkas(p: {
 	onKembaliMetode: (v: "tunai" | "transfer") => void;
 	kembaliBukti: string | null;
 	onKembaliBukti: (u: string | null) => void;
+	owners: Array<{ id: string; name: string }>;
+	kembaliOwner: string;
+	onKembaliOwner: (v: string) => void;
+	kembaliJumlah: string;
+	onKembaliJumlah: (v: string) => void;
+	kembaliTanggal: string;
+	onKembaliTanggal: (v: string) => void;
 }) {
 	const sisa = Math.max(0, p.terima - p.dipakai);
 	const kurang = Math.max(0, p.dipakai - p.terima);
@@ -3102,6 +3154,72 @@ function UangJalanRingkas(p: {
 					)}
 					{p.sisaAksi === "kembalikan" && (
 						<div className="space-y-2 rounded-lg border border-border-default bg-surface-3 p-2.5">
+							<div className="space-y-1">
+								<p className="text-[12px] font-medium text-foreground">
+									Dikembalikan ke
+								</p>
+								<div className="flex flex-wrap gap-1.5">
+									{p.owners.map((o) => (
+										<button
+											key={o.id}
+											type="button"
+											onClick={() => p.onKembaliOwner(o.id)}
+											className={`rounded-full border px-3 py-1.5 text-[12.5px] font-medium ${
+												p.kembaliOwner === o.id
+													? "border-primary bg-primary/10 text-foreground"
+													: "border-border-default text-muted-foreground"
+											}`}
+										>
+											{o.name}
+										</button>
+									))}
+								</div>
+								{!p.kembaliOwner ? (
+									<p className="text-[11.5px] font-medium text-amber-700 dark:text-amber-300">
+										Pilih owner yang menerima uangnya.
+									</p>
+								) : null}
+							</div>
+							<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+								<div className="space-y-1">
+									<label
+										htmlFor="uj_kembali_jumlah_input"
+										className="text-[12px] font-medium text-foreground"
+									>
+										Jumlah dikembalikan
+									</label>
+									<div className="relative">
+										<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fluid-caption">
+											Rp
+										</span>
+										<input
+											id="uj_kembali_jumlah_input"
+											type="text"
+											inputMode="numeric"
+											value={p.kembaliJumlah || String(sisa)}
+											onChange={(e) =>
+												p.onKembaliJumlah(e.target.value.replace(/\D/g, ""))
+											}
+											className={`${inputClass} tabular pl-9`}
+										/>
+									</div>
+									{Number(p.kembaliJumlah || sisa) !== sisa ? (
+										<p className="text-[11.5px] text-muted-foreground">
+											Sisa terhitung {formatRupiah(sisa)} — selisihnya dihitung
+											saat bayar fee.
+										</p>
+									) : null}
+								</div>
+								<div className="space-y-1">
+									<p className="text-[12px] font-medium text-foreground">
+										Tanggal dikembalikan
+									</p>
+									<DatePicker
+										value={p.kembaliTanggal}
+										onValueChange={(v) => p.onKembaliTanggal(v ?? "")}
+									/>
+								</div>
+							</div>
 							<div className="flex gap-1.5">
 								{(["tunai", "transfer"] as const).map((m) => (
 									<button

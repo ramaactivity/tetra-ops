@@ -299,6 +299,19 @@ const RekapInputSchema = z.object({
 	uj_bukti_url: NullableUrlSchema,
 	uj_kembali_metode: z.enum(["tunai", "transfer"]).nullish().catch(null),
 	uj_kembali_bukti_url: NullableUrlSchema,
+	/** Kembalikan sisa (owner 24 Nov 2026): ke owner siapa, berapa, kapan. */
+	uj_kembali_owner: z.uuid().nullish().catch(null),
+	uj_kembali_jumlah: z.coerce
+		.number()
+		.int()
+		.nonnegative()
+		.nullish()
+		.catch(null),
+	uj_kembali_tanggal: z
+		.string()
+		.regex(/^\d{4}-\d{2}-\d{2}$/)
+		.nullish()
+		.catch(null),
 	/** Rincian per pemberi (owner 24 Nov 2026) — JSON, lihat UjRincianSchema. */
 	uj_rincian: z
 		.string()
@@ -1019,6 +1032,9 @@ export async function submitRekap(
 		uj_kembali_metode: formData.get("uj_kembali_metode") || null,
 		uj_kembali_bukti_url: formData.get("uj_kembali_bukti_url") || null,
 		uj_rincian: formData.get("uj_rincian") || null,
+		uj_kembali_owner: formData.get("uj_kembali_owner") || null,
+		uj_kembali_jumlah: formData.get("uj_kembali_jumlah") || null,
+		uj_kembali_tanggal: formData.get("uj_kembali_tanggal") || null,
 	});
 	if (!parsed.success) {
 		return {
@@ -1044,6 +1060,19 @@ export async function submitRekap(
 		return {
 			errors: {
 				_form: ["Upload bukti transfer pengembalian sisa uang jalan dulu, ya."],
+			} as RekapErrors,
+			values: snapshotValues(formData),
+		};
+	}
+	// Pengembalian langsung dibukukan → penerimanya harus jelas.
+	if (
+		parsed.data.uj_terima > 0 &&
+		parsed.data.uj_sisa === "kembalikan" &&
+		!parsed.data.uj_kembali_owner
+	) {
+		return {
+			errors: {
+				_form: ["Pilih owner yang menerima pengembalian sisa uang jalan."],
 			} as RekapErrors,
 			values: snapshotValues(formData),
 		};
@@ -1189,6 +1218,18 @@ export async function submitRekap(
 		uj_kembali_bukti_url:
 			parsed.data.uj_sisa === "kembalikan"
 				? (parsed.data.uj_kembali_bukti_url ?? null)
+				: null,
+		uj_kembali_owner:
+			parsed.data.uj_sisa === "kembalikan"
+				? (parsed.data.uj_kembali_owner ?? null)
+				: null,
+		uj_kembali_jumlah:
+			parsed.data.uj_sisa === "kembalikan"
+				? (parsed.data.uj_kembali_jumlah ?? null)
+				: null,
+		uj_kembali_tanggal:
+			parsed.data.uj_sisa === "kembalikan"
+				? (parsed.data.uj_kembali_tanggal ?? null)
 				: null,
 	};
 
