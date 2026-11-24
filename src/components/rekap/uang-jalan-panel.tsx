@@ -321,9 +321,18 @@ export function UangJalanPanel({
 							onClick={() => {
 								setMode(mode === "kembali" ? null : "kembali");
 								setProof(report?.kembaliBukti ?? null);
-								const u = holders.find((x) => saldo(x) > 0) ?? "";
+								// Crew pelapor dulu, lalu siapa pun yang masih memegang sisa.
+								const u =
+									[reportHolder, ...holders].find(
+										(x) => x && sisaDiCrew(x) > 0,
+									) ??
+									holders.find((x) => saldo(x) > 0) ??
+									"";
 								setUserId(u);
-								setAmount("");
+								// Bawaan = sisa di crew (sama dengan angka di panel); tetap bisa diubah.
+								setAmount(
+									u ? (sisaDiCrew(u) > 0 ? String(sisaDiCrew(u)) : "") : "",
+								);
 							}}
 							className="border-border-default hover:bg-secondary h-9 rounded-full border px-4 text-[13px] font-medium"
 						>
@@ -433,6 +442,8 @@ export function UangJalanPanel({
 								value={userId}
 								onValueChange={(v) => {
 									setUserId(v);
+									if (mode === "kembali")
+										setAmount(sisaDiCrew(v) > 0 ? String(sisaDiCrew(v)) : "");
 									if (mode === "beri")
 										setRows((rs) =>
 											isiSisa(
@@ -458,16 +469,42 @@ export function UangJalanPanel({
 										Rp
 									</span>
 									<input
-										type="number"
+										type="text"
 										inputMode="numeric"
-										min={1}
 										id="uj-amount"
 										value={amount}
-										onChange={(e) => setAmount(e.target.value)}
-										placeholder="200000"
+										onChange={(e) =>
+											setAmount(e.target.value.replace(/\D/g, ""))
+										}
+										placeholder="0"
 										className={`${input} tabular pl-9`}
 									/>
 								</div>
+								{userId && sisaDiCrew(userId) > 0 ? (
+									<p className="type-caption text-muted-foreground">
+										Sisa di crew{" "}
+										<span
+											className="tabular font-medium text-foreground"
+											data-nominal
+										>
+											{formatRupiah(sisaDiCrew(userId))}
+										</span>
+										{Number(amount) === sisaDiCrew(userId) ? (
+											" — ubah kalau yang dikembalikan beda."
+										) : (
+											<>
+												{" · "}
+												<button
+													type="button"
+													className="font-medium underline underline-offset-2"
+													onClick={() => setAmount(String(sisaDiCrew(userId)))}
+												>
+													Isi sesuai sisa
+												</button>
+											</>
+										)}
+									</p>
+								) : null}
 							</div>
 						)}
 						{mode === "beri" && (
