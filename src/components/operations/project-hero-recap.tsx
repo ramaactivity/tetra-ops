@@ -293,7 +293,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 				</section>
 
 				{/* ── Crew incharge ── */}
-				<section className="px-5 py-5">
+				<section id="crew" className="scroll-mt-24 px-5 py-5">
 					<SectionHead
 						action={
 							crewSlot ? undefined : (

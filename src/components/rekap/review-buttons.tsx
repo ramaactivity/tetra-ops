@@ -35,13 +35,13 @@ export function RekapReviewButtons({
 		// via Re-open (super-admin). Confirm with a summary so one misclick doesn't
 		// silently lock the warehouse.
 		const ok = await confirm({
-			title: "Approve & potong stok?",
+			title: "Setujui rekap & potong stok?",
 			description: `Stok bahan untuk ${cetakTotal.toLocaleString(
 				"id-ID",
 			)} cetak akan dipotong dari warehouse${
 				hppTotal > 0 ? ` (HPP ±${formatRupiah(hppTotal)})` : ""
-			}. Setelah di-approve, stok terkunci & cuma bisa dibatalkan lewat Re-open. Pastikan angka cetak & foto bukti sudah benar.`,
-			confirmLabel: "Ya, approve",
+			}. Setelah disetujui, stok terkunci & cuma bisa dibatalkan lewat Buka ulang. Pastikan angka cetak & foto bukti sudah benar.`,
+			confirmLabel: "Ya, setujui",
 			cancelLabel: "Cek lagi",
 		});
 		if (!ok) return;
@@ -50,14 +50,14 @@ export function RekapReviewButtons({
 			if (result.error) {
 				toast.error(result.error);
 			} else {
-				toast.success("Rekap di-approve");
+				toast.success("Rekap disetujui");
 			}
 		});
 	}
 
 	function reject() {
 		if (!notes.trim()) {
-			toast.warning("Wajib isi catatan kalau reject");
+			toast.warning("Tulis dulu apa yang perlu dibetulkan crew");
 			return;
 		}
 		startTransition(async () => {
@@ -87,7 +87,7 @@ export function RekapReviewButtons({
 				<CheckCircle2 className="text-emerald-600 dark:text-emerald-400 mt-0.5 h-4 w-4 shrink-0" />
 				<div className="flex-1 space-y-1">
 					<p className="text-emerald-700 dark:text-emerald-300 text-sm font-medium">
-						Rekap di-approve
+						Rekap disetujui
 					</p>
 					<p className="text-emerald-700/80 dark:text-emerald-300/80 text-xs">
 						Settlement bisa di-tutup buku dengan data ini.
@@ -130,7 +130,7 @@ export function RekapReviewButtons({
 					disabled={pending}
 				>
 					<CheckCircle2 />
-					Override approve
+					Tetap setujui
 				</Button>
 			</div>
 		);
@@ -140,7 +140,7 @@ export function RekapReviewButtons({
 		<div className="space-y-3">
 			<div className="space-y-1.5">
 				<label htmlFor="review_notes" className="text-sm font-medium">
-					Catatan review (wajib jika reject)
+					Catatan untuk crew (wajib kalau dikembalikan)
 				</label>
 				<RichTextarea
 					id="review_notes"
@@ -172,7 +172,7 @@ export function RekapReviewButtons({
 							disabled={pending}
 						>
 							<XCircle />
-							Reject + minta revisi
+							Kembalikan ke crew
 						</Button>
 					</>
 				) : (
@@ -183,7 +183,7 @@ export function RekapReviewButtons({
 						disabled={pending}
 					>
 						<XCircle />
-						Reject
+						Kembalikan
 					</Button>
 				)}
 				<Button
@@ -194,7 +194,7 @@ export function RekapReviewButtons({
 					disabled={pending}
 				>
 					<CheckCircle2 />
-					{pending ? "Memproses…" : "Approve rekap"}
+					{pending ? "Memproses…" : "Setujui rekap"}
 				</Button>
 			</div>
 		</div>

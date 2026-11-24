@@ -23,6 +23,7 @@ import {
 	type ExtraTxnRow,
 	type OwnerPaidPending,
 } from "@/components/rekap/event-extra-transactions";
+import { KesiapanSettleCard } from "@/components/rekap/kesiapan-settle-card";
 import {
 	PartnerCommissionCard,
 	type PartnerCommissionState,
@@ -66,6 +67,7 @@ import {
 	paidFromAccountId,
 } from "@/lib/finance/emoney";
 import { catatPrefill, rekapExpenseItems } from "@/lib/rekap/expense-items";
+import { cekKesiapan } from "@/lib/rekap/kesiapan";
 import {
 	pemegangUangJalan,
 	type RekapExpenseSource,
@@ -118,6 +120,7 @@ type RekapRow = {
 		// "owner" | users.id penalang | "crew" (belum ditentukan) — lihat
 		// ExpensePaidBy di lib/actions/rekap.ts.
 		paid_by?: string;
+		nota_url?: string | null;
 	}> | null;
 	expense_paid_by: Record<string, string> | null;
 	expense_nota_urls: Record<string, string> | null;
@@ -179,7 +182,8 @@ export default async function EventRekapPage({
 			total_paid, remaining_balance, frame_size, gross_up_pph_amount,
 			channel, vendor_name, vendor_commission_mode, vendor_commission_amount,
 			referrer_user_id, referrer_commission,
-			sales_user_id, direct_sales_commission, is_compliment, owner_pool_enabled`,
+			sales_user_id, direct_sales_commission, is_compliment, owner_pool_enabled,
+			transport_rental_cost`,
 		)
 		.eq("project_id", projectId)
 		.maybeSingle();
@@ -891,6 +895,52 @@ export default async function EventRekapPage({
 			}
 		: undefined;
 
+	// Kesiapan settle (owner 24 Nov 2026): yang bikin angka settle salah
+	// tampil di atas, lengkap dengan biaya lapangan sebelum rekap disetujui.
+	const biayaKesiapan = (fieldExpenseBreakdown?.items ?? [])
+		.filter((it) => it.amount > 0)
+		.map((it) => {
+			const lainnya = /^lainnya:(\d+)$/.exec(it.key);
+			const notaUrl = lainnya
+				? (rekap?.lainnya_items?.[Number(lainnya[1])]?.nota_url ?? null)
+				: (rekap?.expense_nota_urls?.[it.key] ?? null);
+			return {
+				label: it.label,
+				amount: it.amount,
+				payer:
+					it.payerName ??
+					(it.paidBy === "owner"
+						? "dibayar owner"
+						: it.paidBy === "card"
+							? "kartu perusahaan"
+							: "crew"),
+				notaUrl,
+				// Tap kartu e-toll tidak keluar struk — tidak dihitung kurang nota.
+				nota: Boolean(notaUrl) || it.paidBy === "card",
+			};
+		});
+	const kesiapan = rekap
+		? cekKesiapan({
+				projectId,
+				disetujui: recapApproved,
+				transport: rekap.transport_method ?? null,
+				sewaMobil: Number(event.transport_rental_cost ?? 0) || null,
+				crewCount: context.crew.length,
+				durasiJam: context.pkg.duration_hours ?? null,
+				biaya: biayaKesiapan,
+				ujDilapor: Number(rekap.uj_terima ?? 0),
+				ujTercatat: ujLedger
+					.filter(
+						(l) =>
+							l.kind === "beri" &&
+							!l.is_reversed &&
+							l.user_id === rekap.uj_holder,
+					)
+					.reduce((t, l) => t + l.amount, 0),
+				sisaTagihan: Number(event.remaining_balance ?? 0),
+			})
+		: [];
+
 	return (
 		<Container size="xl" className="space-y-3 pb-32">
 			<TopbarEntityPortal name={event.client_name} />
@@ -1030,13 +1080,17 @@ export default async function EventRekapPage({
 				</Tabs>
 			)}
 
+			{rekap && !isSettled && (
+				<KesiapanSettleCard cek={kesiapan} biaya={biayaKesiapan} />
+			)}
+
 			{/* === Approve/Reject section (review stage, not settled yet) === */}
 			{rekap && !recapApproved && !isSettled && (
 				<RekapCard className="space-y-4">
 					<SectionHeader
 						icon={CheckSquare}
 						title="Review rekap"
-						description="Approve untuk commit deduksi stok ke warehouse, atau reject untuk minta revisi."
+						description="Setujui kalau isinya sudah benar — stok berkurang sesuai rekap. Kembalikan ke crew kalau ada yang perlu dibetulkan."
 					/>
 					<RekapReviewButtons
 						rekapId={rekap.id}
