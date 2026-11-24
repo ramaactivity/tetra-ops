@@ -478,6 +478,34 @@ export function RekapForm({
 
 	const lainnyaItemsJson = JSON.stringify(lainnyaItems);
 
+	// Kuota internet (owner 24 Nov 2026): crew sering beli kuota — isian sendiri
+	// di form, tapi tetap disimpan sebagai satu baris lainnya_items supaya
+	// settle & jurnal tidak berubah. Baris "kuota…" lama ikut pindah ke sini.
+	const kuotaIdx = lainnyaItems.findIndex((r) => /^kuota/i.test(r.note.trim()));
+	const kuotaRow = kuotaIdx >= 0 ? lainnyaItems[kuotaIdx] : null;
+	function setKuota(patch: Partial<LainnyaRow>) {
+		setLainnyaItems((prev) => {
+			const i = prev.findIndex((r) => /^kuota/i.test(r.note.trim()));
+			if (i < 0) {
+				if (!patch.amount) return prev;
+				return [
+					{
+						note: "Kuota internet",
+						amount: 0,
+						paid_by: ujAda && ujHolder ? ujHolder : "crew",
+						nota_url: null,
+						...patch,
+					},
+					...prev,
+				].slice(0, 20);
+			}
+			const next = { ...prev[i], ...patch };
+			return next.amount > 0 || next.nota_url
+				? prev.map((r, k) => (k === i ? next : r))
+				: prev.filter((_, k) => k !== i);
+		});
+	}
+
 	// === Uang jalan dari owner (DR-049) ===
 	// Crew hanya melihat uang jalan yang diterima, terpakai, dan sisanya —
 	// TIDAK PERNAH angka fee (owner kadang memberi lebih tanpa diumumkan).
@@ -1805,8 +1833,8 @@ export function RekapForm({
 				{/* ========== KONSUMSI & LAIN-LAIN ========== */}
 				<NumberedSection
 					step={6}
-					title="Konsumsi & Lain-lain"
-					description="Snack/makan crew + biaya insidental yang nggak masuk kategori di atas."
+					title="Konsumsi, Kuota & Lain-lain"
+					description="Snack/makan crew, kuota internet, dan biaya insidental yang nggak masuk kategori di atas."
 					defaultOpen={konsumsiSectionOpen}
 				>
 					<MoneyField
@@ -1825,13 +1853,29 @@ export function RekapForm({
 						}}
 					/>
 
+					<MoneyField
+						label="Kuota internet"
+						name="kuota_cost_input"
+						value={kuotaRow && kuotaRow.amount > 0 ? String(kuotaRow.amount) : ""}
+						onChange={(v) => setKuota({ amount: Number(v) || 0 })}
+						paidBy={kuotaRow?.paid_by}
+						onPaidByChange={(v) => setKuota({ paid_by: v })}
+						crew={payerCrew}
+						nota={{
+							projectId,
+							notaKey: "kuota",
+							url: kuotaRow?.nota_url ?? null,
+							onChange: (u) => setKuota({ nota_url: u }),
+						}}
+					/>
+
 					<div className="space-y-2">
 						<div className="space-y-1">
 							<div className="flex items-center justify-between gap-2">
 								<p className="text-fluid-body font-medium">
 									Lain-lain{" "}
 									<span className="text-muted-foreground text-fluid-caption font-normal">
-										({lainnyaItems.length}/20)
+										({lainnyaItems.length - (kuotaRow ? 1 : 0)}/20)
 									</span>
 								</p>
 								{lainnyaItems.length < 20 && (
@@ -1847,17 +1891,18 @@ export function RekapForm({
 							</div>
 							<p className="text-muted-foreground text-fluid-caption">
 								Biaya insidental di luar kategori atas — mis. P3K, obat, tisu,
-								parkir tambahan.
+								parkir tambahan. Kuota internet diisi di atas.
 							</p>
 						</div>
-						{lainnyaItems.length === 0 ? (
+						{lainnyaItems.length - (kuotaRow ? 1 : 0) === 0 ? (
 							<p className="text-muted-foreground text-fluid-caption italic">
 								Belum ada item. Tekan &ldquo;+ Tambah baris&rdquo; untuk
 								menambahkan.
 							</p>
 						) : (
 							<ul className="space-y-2">
-								{lainnyaItems.map((row, idx) => (
+								{lainnyaItems.map((row, idx) =>
+									idx === kuotaIdx ? null : (
 									<li
 										key={idx}
 										className="space-y-2 rounded-md border border-border-default bg-surface-3 p-2.5"
