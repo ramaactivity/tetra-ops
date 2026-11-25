@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { TabNav } from "@/components/ui/tab-nav";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { loadPendingApprovals } from "@/lib/documents/pending-approval";
+import { infoPenerima, teksPenerima } from "@/lib/documents/penerima";
 import { computeTotals } from "@/lib/documents/totals";
 import {
 	DOC_TYPE_LABEL,
@@ -239,9 +240,39 @@ async function loadApprovalRows(
 	const byId = new Map(
 		((data ?? []) as DocumentRow[]).map((d) => [d.id, d] as const),
 	);
+	// Tujuan kirim tampil sebelum tombol ditekan (owner 25 Nov: nota Shella ke WO).
+	const { data: reqs } = await supabase
+		.from("doc_send_requests")
+		.select("id, nomor")
+		.in(
+			"id",
+			pending.map((p) => p.requestId),
+		);
+	const nomorReq = new Map(
+		(reqs ?? []).map((r) => [r.id as string, r.nomor as string | null]),
+	);
+	const penerima = new Map(
+		await Promise.all(
+			pending.map(
+				async (p) =>
+					[
+						p.documentId,
+						await infoPenerima(
+							supabase,
+							p.documentId,
+							nomorReq.get(p.requestId),
+						).catch((e) => {
+							console.error("[dokumen] penerima:", e);
+							return null;
+						}),
+					] as const,
+			),
+		),
+	);
 	return pending.flatMap(({ documentId }) => {
 		const d = byId.get(documentId);
 		if (!d) return [];
+		const info = penerima.get(documentId);
 		return [
 			{
 				id: d.id,
@@ -254,6 +285,8 @@ async function loadApprovalRows(
 				}).total,
 				blockedBy: pendingAdminItems(d.items),
 				fromBot: d.origin?.jenis === "wa_bot",
+				tujuan: info?.tujuan ? teksPenerima(info.tujuan) : null,
+				peringatan: info?.peringatan ?? null,
 			},
 		];
 	});

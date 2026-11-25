@@ -51,7 +51,11 @@ export type DraftView = {
 	/** Kuitansi pembayaran ini (setelah tercatat). */
 	kuitansi: { id: string; nomor: string } | null;
 	/** Usulan kuitansi lewat Hermes (null = belum dicoba). */
-	kuitansiStatus: "dikabarkan_ke_hermes" | "belum_disiapkan" | null;
+	kuitansiStatus:
+		| "ditawarkan_ke_owner"
+		| "dikabarkan_ke_hermes"
+		| "belum_disiapkan"
+		| null;
 	/** Halaman Uang Masuk (lintas klien): untuk siapa bukti ini. */
 	klien?: { nama: string; href: string | null } | null;
 	/** Event klien sudah ada → konfirmasi langsung masuk buku. */
@@ -319,15 +323,24 @@ function DraftRow({
 					) : (
 						"Kuitansi belum terbit — terbitkan dari halaman pembayaran event."
 					)}
-					{d.kuitansiStatus === "dikabarkan_ke_hermes"
-						? " · usulan kirim sudah di Hermes"
-						: null}
+					{d.kuitansiStatus === "ditawarkan_ke_owner" ? (
+						<>
+							{" · tawaran kirim ada di "}
+							<a
+								href="/finance/dokumen"
+								className="font-medium text-link hover:underline"
+							>
+								Dokumen › Perlu persetujuan
+							</a>
+						</>
+					) : d.kuitansiStatus === "dikabarkan_ke_hermes" ? (
+						" · usulan kirim sudah di Hermes"
+					) : null}
 				</p>
 			) : null}
 			{d.status === "tercatat" && d.kuitansiStatus === "belum_disiapkan" ? (
 				<p className="mt-1 text-[12.5px] text-amber-800 md:col-span-6 md:mt-0">
-					Kuitansi belum disiapkan Hermes — tawaran kirim dikirim ke grup owner
-					Telegram sebagai gantinya.
+					Kuitansi belum siap dikirim — terbitkan dari halaman pembayaran event.
 				</p>
 			) : null}
 			{open ? (

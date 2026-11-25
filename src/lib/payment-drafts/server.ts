@@ -2,7 +2,6 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after } from "next/server";
-import { HERMES_URL_CONFIG_KEY } from "@/lib/ai/hermes";
 import { resolveOwnerActorId } from "@/lib/auth/owner-actor";
 import { inboxForDocs, loadClientDocs } from "@/lib/booking-inbox/client-docs";
 import { pickPrimaryDoc } from "@/lib/booking-inbox/klien-data";
@@ -41,7 +40,6 @@ import {
 	jenisBayar,
 	planDraftUpsert,
 } from "./core";
-import { type PembayaranTercatat, signedRequest, webhookUrl } from "./webhook";
 
 /**
  * Draft bukti DP (DR-055) — I/O: cari tagihan klien, hitung sisa, simpan
@@ -562,8 +560,7 @@ export async function eventOfDraft(
 /**
  * `kirimLangsung` (tombol "Konfirmasi & kirim terima kasih", owner 19 Nov
  * 2026): setelah masuk buku, kuitansi — atau nota lunas kalau lunas — langsung
- * terkirim ke klien dengan pesan bawaan; Hermes tidak diminta mengusulkan
- * kiriman yang sama.
+ * terkirim ke pengirim bukti transfer dengan pesan bawaan.
  */
 export type PostOpts = { kirimLangsung?: boolean };
 
@@ -665,7 +662,7 @@ async function postDraft(
 				senderName: d.nama_pengirim,
 			},
 			actorId,
-			// Kuitansi ditawarkan lewat Hermes (Telegram hanya cadangan) — lihat kabariHermes.
+			// Tawaran kirim disusun setelah posting (tawarkanKeOwner / kirimTerimaKasih).
 			{ skipOwnerOffer: true },
 		);
 		if (!res.ok) {
@@ -680,27 +677,14 @@ async function postDraft(
 			.update({ payment_id: res.paymentId })
 			.eq("id", d.id);
 		const posted = { ...res, paymentType, nominal: d.nominal };
-		// Dikonfirmasi owner di app → dokumen langsung ditawarkan di app
-		// (Perlu persetujuan + Telegram), tidak lewat Hermes: Shella 25 Nov,
-		// "Konfirmasi saja" tidak memunculkan apa pun untuk dikirim. Hermes hanya
-		// untuk yang disetujui admin lewat WA.
+		// Satu jalur (DR-063): kuitansi/nota lunas selalu lewat Tetra Ops —
+		// langsung terkirim (tombol "kirim terima kasih") atau ditawarkan ke
+		// owner. Penerima = pengirim bukti transfer, bukan nomor yang tersalin
+		// di dokumen (Shella 25 Nov: nota lunas terkirim ke WO).
 		after(() =>
 			(opts.kirimLangsung
-				? kirimTerimaKasih(eventId, posted, actorId)
-				: d.disetujui_via === "app"
-					? offerPaymentDocsToOwner(
-							eventId,
-							{
-								docs: posted.docs as Parameters<
-									typeof offerPaymentDocsToOwner
-								>[1]["docs"],
-								lunas: posted.lunas,
-								remaining: posted.sisaSesudah,
-							},
-							posted.paymentType,
-							posted.nominal,
-						)
-					: kabariHermes(d, eventId, posted)
+				? kirimTerimaKasih(eventId, posted, actorId, d.client_wa)
+				: tawarkanKeOwner(d, eventId, posted)
 			).catch((e) => console.error("[payment-drafts] setelah posting:", e)),
 		);
 		return "posted";
@@ -1079,49 +1063,6 @@ export async function searchSender(
 	return out.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
 }
 
-/**
- * Kirim webhook "pembayaran tercatat" ke Hermes dengan coba ulang. Alamat
- * dibaca ulang tiap percobaan (quick tunnel bisa berganti). 400/401 = isi /
- * tanda tangan salah → tidak diulang.
- */
-export async function kirimWebhookPembayaran(
-	admin: SupabaseClient,
-	payload: PembayaranTercatat,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-	const secret = process.env.WEBHOOK_PEMBAYARAN_SECRET?.trim();
-	if (!secret)
-		return { ok: false, error: "WEBHOOK_PEMBAYARAN_SECRET belum diisi" };
-	let last = "";
-	for (const wait of [0, 2000, 5000]) {
-		if (wait) await new Promise((r) => setTimeout(r, wait));
-		const { data } = await admin
-			.from("system_config")
-			.select("value")
-			.eq("key", HERMES_URL_CONFIG_KEY)
-			.maybeSingle();
-		const url = webhookUrl(data?.value);
-		if (!url) {
-			last = "alamat Hermes belum terdaftar";
-			continue;
-		}
-		try {
-			const req = signedRequest(secret, payload);
-			const r = await fetch(url, {
-				method: "POST",
-				headers: req.headers,
-				body: req.body,
-				signal: AbortSignal.timeout(10_000),
-			});
-			if (r.ok) return { ok: true };
-			last = `Hermes menjawab ${r.status}: ${(await r.text()).slice(0, 160)}`;
-			if (r.status === 400 || r.status === 401) break;
-		} catch (e) {
-			last = `Hermes tidak terjangkau: ${e instanceof Error ? e.message : String(e)}`;
-		}
-	}
-	return { ok: false, error: last };
-}
-
 type Posted = {
 	paymentId: string;
 	docs: Array<{ id: string; docType: string; docNumber: string }>;
@@ -1136,7 +1077,13 @@ type Posted = {
  * atau kuitansi terkirim dengan pesan bawaan ("terima kasih, pembayaran sudah
  * kami terima"). Gagal kirim → cadangan tawaran 1-tap ke grup owner.
  */
-async function kirimTerimaKasih(eventId: string, res: Posted, actorId: string) {
+async function kirimTerimaKasih(
+	eventId: string,
+	res: Posted,
+	actorId: string,
+	/** Pengirim bukti transfer — tujuan WA, bukan nomor di dokumen. */
+	nomor: string | null,
+) {
 	const admin = createAdminClient();
 	const pick =
 		(res.lunas && res.docs.find((x) => x.docType === "nota_lunas")) ||
@@ -1154,7 +1101,7 @@ async function kirimTerimaKasih(eventId: string, res: Posted, actorId: string) {
 				{
 					documentId: pick.id,
 					pesan: await defaultClientMessage(admin, doc as DocumentRow),
-					nomor: null,
+					nomor,
 				},
 				{ actorId },
 			);
@@ -1176,69 +1123,40 @@ async function kirimTerimaKasih(eventId: string, res: Posted, actorId: string) {
 			},
 			res.paymentType,
 			res.nominal,
+			nomor,
 		);
 }
 
 /**
- * Setelah DP dari draft tercatat: kabari Hermes (usulan kuitansi ke Rama).
- * Gagal → tandai "kuitansi belum disiapkan" + cadangan tawaran Telegram 1-tap.
- * Kuitansi tidak pernah terkirim ke klien dari sini.
+ * Dokumen pembayaran ditawarkan ke owner (Perlu persetujuan + Telegram) dengan
+ * tujuan = pengirim bukti. Tidak pernah terkirim ke klien dari sini.
  */
-async function kabariHermes(d: DraftRow, eventId: string, res: Posted) {
+async function tawarkanKeOwner(d: DraftRow, eventId: string, res: Posted) {
 	const admin = createAdminClient();
-	const receipt = res.docs.find((x) => x.docType === "receipt") ?? null;
-	const [{ data: ev }, { data: doc }] = await Promise.all([
-		admin
-			.from("events")
-			.select("project_id, client_name")
-			.eq("id", eventId)
-			.maybeSingle(),
-		d.document_id
-			? admin
-					.from("documents")
-					.select("doc_number")
-					.eq("id", d.document_id)
-					.maybeSingle()
-			: Promise.resolve({ data: null as { doc_number: string } | null }),
-	]);
-	const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
-	const r = await kirimWebhookPembayaran(admin, {
-		draft_id: d.id,
-		nama_klien: (ev?.client_name as string | null) ?? d.nama_klien,
-		client_wa: d.client_wa,
-		nominal: res.nominal,
-		nama_pengirim: d.nama_pengirim,
-		invoice_no:
-			(doc?.doc_number as string | undefined) ??
-			d.invoice_no ??
-			res.docs.find((x) => x.docType === "invoice")?.docNumber ??
-			null,
-		booking_inbox_id: d.booking_inbox_id,
-		booking_id: d.booking_inbox_id,
-		event_id: eventId,
-		project_id: (ev?.project_id as string | null) ?? null,
-		payment_id: res.paymentId,
-		kuitansi_no: receipt?.docNumber ?? null,
-		kuitansi_url:
-			receipt && appUrl ? `${appUrl}/finance/dokumen/${receipt.id}` : null,
-	});
+	if (res.docs.length === 0) {
+		await admin
+			.from("payment_drafts")
+			.update({
+				kuitansi_status: "belum_disiapkan",
+				kuitansi_catatan:
+					"Kuitansi tidak terbit — terbitkan dari halaman pembayaran event.",
+			})
+			.eq("id", d.id);
+		return;
+	}
+	await offerPaymentDocsToOwner(
+		eventId,
+		{
+			docs: res.docs as Parameters<typeof offerPaymentDocsToOwner>[1]["docs"],
+			lunas: res.lunas,
+			remaining: res.sisaSesudah,
+		},
+		res.paymentType,
+		res.nominal,
+		d.client_wa,
+	);
 	await admin
 		.from("payment_drafts")
-		.update(
-			r.ok
-				? { kuitansi_status: "dikabarkan_ke_hermes", kuitansi_catatan: null }
-				: { kuitansi_status: "belum_disiapkan", kuitansi_catatan: r.error },
-		)
+		.update({ kuitansi_status: "ditawarkan_ke_owner", kuitansi_catatan: null })
 		.eq("id", d.id);
-	if (!r.ok && res.docs.length > 0)
-		await offerPaymentDocsToOwner(
-			eventId,
-			{
-				docs: res.docs as Parameters<typeof offerPaymentDocsToOwner>[1]["docs"],
-				lunas: res.lunas,
-				remaining: res.sisaSesudah,
-			},
-			res.paymentType,
-			res.nominal,
-		);
 }

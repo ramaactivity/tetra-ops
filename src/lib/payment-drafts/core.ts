@@ -154,7 +154,11 @@ export type DraftRow = DraftFields & {
 	disetujui_at: string | null;
 	disetujui_via: "admin_wa" | "app" | null;
 	catatan_posting: string | null;
-	kuitansi_status?: "dikabarkan_ke_hermes" | "belum_disiapkan" | null;
+	kuitansi_status?:
+		| "ditawarkan_ke_owner"
+		| "dikabarkan_ke_hermes"
+		| "belum_disiapkan"
+		| null;
 	kuitansi_catatan?: string | null;
 	created_at: string;
 	updated_at: string;

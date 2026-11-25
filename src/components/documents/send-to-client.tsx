@@ -1,6 +1,12 @@
 "use client";
 
-import { CheckCheck, FileText, Loader2, Send } from "lucide-react";
+import {
+	AlertTriangle,
+	CheckCheck,
+	FileText,
+	Loader2,
+	Send,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -21,8 +27,11 @@ import {
 	defaultSendMessage,
 	dismissSendApproval,
 	markDeliveredManual,
+	penerimaKirim,
+	samakanNomorDokumen,
 	sendDocumentToClient,
 } from "@/lib/actions/documents";
+import type { InfoPenerima } from "@/lib/documents/penerima";
 import type { DocType } from "@/lib/documents/types";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -56,7 +65,16 @@ export function SendToClientButton({
 	// PDF selalu terkirim; pesan teks di gelembung terpisah, boleh tidak ada.
 	const [withText, setWithText] = useState(true);
 	const [nomor, setNomor] = useState("");
+	// Penerima (owner 25 Nov): tujuan bawaan + pilihan dari event; "" = nomor lain.
+	const [info, setInfo] = useState<InfoPenerima | null>(null);
+	const [pilih, setPilih] = useState<string>("");
 	const [pending, start] = useTransition();
+
+	async function muatPenerima(docId: string) {
+		const i = await penerimaKirim(docId);
+		setInfo(i);
+		setPilih(i.tujuan?.nomor ?? "");
+	}
 
 	async function openDialog() {
 		if (blockedBy.length > 0) {
@@ -67,7 +85,14 @@ export function SendToClientButton({
 		if (!savedId) return;
 		setId(savedId);
 		setOpen(true);
-		start(async () => setPesan(await defaultSendMessage(savedId)));
+		setInfo(null);
+		start(async () => {
+			const [m] = await Promise.all([
+				defaultSendMessage(savedId),
+				muatPenerima(savedId),
+			]);
+			setPesan(m);
+		});
 	}
 
 	function kirim() {
@@ -76,7 +101,7 @@ export function SendToClientButton({
 			const res = await sendDocumentToClient(
 				id,
 				withText ? pesan : "",
-				nomor || null,
+				pilih || nomor || null,
 			);
 			if (!res.ok) {
 				toast.error(res.error);
@@ -152,16 +177,24 @@ export function SendToClientButton({
 								Hanya file PDF yang dikirim, tanpa pesan teks.
 							</p>
 						)}
-						<div className="space-y-1.5">
-							<span className="text-[13px] font-medium">
-								Nomor WA (opsional)
-							</span>
-							<PhoneInput
-								value={nomor}
-								onChange={(e) => setNomor(e.target.value)}
-								placeholder="Kosong = nomor klien di dokumen/event"
-							/>
-						</div>
+						<PenerimaPicker
+							info={info}
+							pilih={pilih}
+							onPilih={setPilih}
+							nomor={nomor}
+							onNomor={setNomor}
+							disabled={pending}
+							onSamakan={() =>
+								id &&
+								start(async () => {
+									const r = await samakanNomorDokumen(id);
+									if (!r.ok) return void toast.error(r.error);
+									toast.success(`Nomor diperbarui di ${r.jumlah} dokumen`);
+									await muatPenerima(id);
+									router.refresh();
+								})
+							}
+						/>
 					</div>
 					<DialogFooter>
 						<Button
@@ -173,7 +206,11 @@ export function SendToClientButton({
 						</Button>
 						<Button
 							onClick={kirim}
-							disabled={pending || (withText && !pesan.trim())}
+							disabled={
+								pending ||
+								(withText && !pesan.trim()) ||
+								(!pilih && !nomor.trim())
+							}
 						>
 							{pending ? <Loader2 className="animate-spin" /> : <Send />} Kirim
 						</Button>
@@ -323,6 +360,9 @@ export type ApprovalQueueRow = {
 	total: number;
 	blockedBy: string[];
 	fromBot: boolean;
+	/** "Nama · nomor (peran)" — tujuan bawaan tombol kirim. */
+	tujuan?: string | null;
+	peringatan?: string | null;
 };
 
 /** Daftar Dokumen: semua yang menunggu persetujuan, paling atas. */
@@ -365,9 +405,142 @@ export function ApprovalQueue({ rows }: { rows: ApprovalQueueRow[] }) {
 							{formatRupiah(r.total)}
 						</span>
 						<ApprovalActions documentId={r.id} blockedBy={r.blockedBy} />
+						{r.tujuan || r.peringatan ? (
+							<p className="w-full text-[12.5px] text-muted-foreground">
+								{r.tujuan ? (
+									<>
+										Dikirim ke{" "}
+										<span className="font-medium text-foreground">
+											{r.tujuan}
+										</span>
+									</>
+								) : null}
+								{r.peringatan ? (
+									<span className="ml-1 inline-flex items-center gap-1 text-amber-800">
+										<AlertTriangle className="size-3.5" /> {r.peringatan} Ganti
+										lewat Setujui & kirim.
+									</span>
+								) : null}
+							</p>
+						) : null}
 					</li>
 				))}
 			</ul>
 		</section>
+	);
+}
+
+const fmtNomor = (n: string) => n.replace(/^62/, "0");
+
+/**
+ * Kirim ke siapa — pilihan dari event (WO/EO, pemesan, klien, PIC) + pengirim
+ * bukti transfer + nomor di dokumen. Bukan nomor klien → peringatan dulu.
+ */
+function PenerimaPicker({
+	info,
+	pilih,
+	onPilih,
+	nomor,
+	onNomor,
+	disabled,
+	onSamakan,
+}: {
+	info: InfoPenerima | null;
+	pilih: string;
+	onPilih: (v: string) => void;
+	nomor: string;
+	onNomor: (v: string) => void;
+	disabled: boolean;
+	onSamakan: () => void;
+}) {
+	if (!info)
+		return (
+			<p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+				<Loader2 className="size-3.5 animate-spin" /> Memuat nomor tujuan…
+			</p>
+		);
+	const dipilih = info.pilihan.find((p) => p.nomor === pilih) ?? null;
+	const adaKlien = info.pilihan.some((p) => /Klien/.test(p.label));
+	const peringatan = !pilih
+		? null
+		: dipilih && adaKlien && !/Klien/.test(dipilih.label)
+			? `${dipilih.label} — bukan nomor klien di event. Pastikan memang dikirim ke sini.`
+			: !adaKlien
+				? info.peringatan
+				: null;
+	return (
+		<div className="space-y-2">
+			<span className="text-[13px] font-medium">Kirim ke</span>
+			<div className="flex flex-wrap gap-1.5">
+				{info.pilihan.map((p) => (
+					<button
+						key={p.nomor}
+						type="button"
+						disabled={disabled}
+						aria-pressed={pilih === p.nomor}
+						onClick={() => onPilih(p.nomor)}
+						className={cn(
+							"rounded-2xl border px-3 py-1.5 text-left text-[13px] transition-colors",
+							pilih === p.nomor
+								? "border-[#059669] bg-[#059669]/10 text-foreground"
+								: "border-border-default text-muted-foreground hover:bg-secondary",
+						)}
+					>
+						<span className="font-medium text-foreground">
+							{p.nama ?? fmtNomor(p.nomor)}
+						</span>
+						<span className="block text-[12px]">
+							{p.label}
+							{p.nama ? ` · ${fmtNomor(p.nomor)}` : ""}
+						</span>
+					</button>
+				))}
+				<button
+					type="button"
+					disabled={disabled}
+					aria-pressed={pilih === ""}
+					onClick={() => onPilih("")}
+					className={cn(
+						"rounded-2xl border px-3 py-1.5 text-[13px] font-medium transition-colors",
+						pilih === ""
+							? "border-[#059669] bg-[#059669]/10"
+							: "border-border-default text-muted-foreground hover:bg-secondary",
+					)}
+				>
+					Nomor lain
+				</button>
+			</div>
+			{pilih === "" ? (
+				<PhoneInput
+					value={nomor}
+					onChange={(e) => onNomor(e.target.value)}
+					placeholder="08…"
+				/>
+			) : null}
+			{peringatan ? (
+				<p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
+					<AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+					{peringatan}
+				</p>
+			) : null}
+			{info.nomorDokumenBeda ? (
+				<div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
+					<span>
+						Nomor di dokumen ({fmtNomor(info.nomorDokumenBeda.lama)}) beda
+						dengan nomor klien di event ({fmtNomor(info.nomorDokumenBeda.baru)}
+						).
+					</span>
+					<Button
+						size="sm"
+						variant="outline"
+						className="rounded-full"
+						disabled={disabled}
+						onClick={onSamakan}
+					>
+						Samakan nomor dokumen
+					</Button>
+				</div>
+			) : null}
+		</div>
 	);
 }

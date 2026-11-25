@@ -1535,3 +1535,18 @@ Kartu Telegram + lonceng begitu bukti baru masuk, dengan tombol yang sama.
 4. Dialog Ubah: "Untuk event" (cari nama/tanggal/PRJ, tampil sisa) → syarat & sisa dihitung ulang; tombol "Bukan pembayaran event" menutup bukti dengan alasan (tidak masuk Billing).
 5. Nama pengirim kosong ditulis "Tidak tertera di bukti — isi dari mutasi" + saran nama klien/pemesan; owner tetap yang mengisi.
 6. Kartu Booking Masuk dari bot yang nomornya sudah punya acara mendatang ditandai "Klien sudah punya event PRJ…" + Gabungkan (tautkan, bukti ikut ke event, yang disetujui masuk buku) / Batalkan kartu. Tidak ada yang dihapus.
+
+---
+
+## DR-063: Kuitansi/nota lunas satu jalur lewat Tetra Ops; penerima = pengirim bukti + peringatan nomor
+
+**Status:** Accepted (owner 2026-11-25, lewat hermes-ff: "ya sesuai rekomendasi lu aja yang penting aman dan benar")
+**Date:** 2026-11-25
+**Mengganti:** webhook "pembayaran tercatat" ke Hermes (DR-055 M2).
+**Kasus:** nota lunas Shella (NOTA-TP-06) terkirim ke Ariyo (pemesan/WO, nomor tersalin di invoice), padahal yang mengirim bukti transfer Shella. Usulan Hermes juga menyebut "kuitansi DP" untuk pelunasan.
+
+### Decision
+1. Bukti transfer yang masuk buku (dikonfirmasi di app, tap Telegram, atau admin WA) → kuitansi/nota lunas langsung terkirim ("Konfirmasi & kirim terima kasih") atau **ditawarkan ke owner** (Perlu persetujuan + Telegram). `payment_drafts.kuitansi_status = 'ditawarkan_ke_owner'`. Webhook ke Hermes dihapus.
+2. Tujuan WA dokumen pembayaran dari bukti transfer = **nomor pengirim bukti** (`doc_send_requests.nomor`), bukan `documents.client.phone`.
+3. Satu penentu penerima (`src/lib/documents/penerima.ts`) untuk dialog kirim di app, kartu Perlu persetujuan, kartu Telegram, dan pratinjau `kirim_dokumen`: tampil "Dikirim ke: nama · nomor (peran)"; bukan nomor klien di event (kecuali WO pada event lewat vendor) → peringatan. Dialog kirim menawarkan pilihan WO/EO, pemesan, klien, PIC, pengirim bukti, nomor lain.
+4. Nomor di dokumen ≠ nomor klien event → tombol "Samakan nomor dokumen" (owner yang menekan; dokumen aktif event itu yang masih memuat nomor lama ikut diganti).

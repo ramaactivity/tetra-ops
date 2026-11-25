@@ -263,6 +263,8 @@ export async function offerPaymentDocsToOwner(
 	issued: Awaited<ReturnType<typeof issuePaymentDocs>>,
 	paymentType: PaymentType,
 	amount: number,
+	/** Tujuan WA (pengirim bukti transfer). Kosong = nomor di dokumen. */
+	nomor?: string | null,
 ): Promise<void> {
 	if (issued.docs.length === 0) return;
 	const admin = createAdminClient();
@@ -279,6 +281,7 @@ export async function offerPaymentDocsToOwner(
 	// Lunas: yang ditawarkan nota lunas (kuitansi pelunasan tetap ada di app).
 	if (issued.lunas && nota) {
 		await offerSendToOwner(admin, {
+			nomor,
 			documentIds: [nota.id],
 			headerHtml: `🧾 <b>${client} lunas</b> (${PAYMENT_TYPE_LABEL[paymentType]} ${formatRupiah(amount)}).\nNota lunas <b>${nota.docNumber}</b> siap. Kirim ke klien?`,
 		});
@@ -286,6 +289,7 @@ export async function offerPaymentDocsToOwner(
 	}
 	if (!receipt) return;
 	await offerSendToOwner(admin, {
+		nomor,
 		documentIds: [receipt.id, ...(invoice ? [invoice.id] : [])],
 		headerHtml: `💵 <b>${PAYMENT_TYPE_LABEL[paymentType]} ${formatRupiah(amount)}</b> dari ${client} tercatat.\nKuitansi <b>${receipt.docNumber}</b>${invoice ? ` + invoice sisa <b>${invoice.docNumber}</b> (${formatRupiah(issued.remaining)})` : ""}. Kirim ke klien?`,
 	});

@@ -17,6 +17,11 @@ import {
 } from "@/lib/documents/invoice";
 import { loadDocument, loadEventForPdfById } from "@/lib/documents/load";
 import { closePendingSends } from "@/lib/documents/pending-approval";
+import {
+	type InfoPenerima,
+	infoPenerima,
+	nomorPermintaanTerbuka,
+} from "@/lib/documents/penerima";
 import { sendDocumentCore } from "@/lib/documents/send";
 import {
 	addDays,
@@ -772,4 +777,61 @@ export async function dismissSendApproval(id: string): Promise<{ ok: true }> {
 	revalidatePath(`/finance/dokumen/${id}`);
 	revalidatePath("/finance/dokumen");
 	return { ok: true };
+}
+
+/**
+ * Penerima untuk dialog kirim (owner 25 Nov 2026): tujuan bawaan (permintaan
+ * kirim → mis. pengirim bukti transfer, atau nomor di dokumen), pilihan lain
+ * dari event, dan peringatan kalau bukan nomor klien.
+ */
+export async function penerimaKirim(id: string): Promise<InfoPenerima> {
+	await requireOwnerLevel();
+	const supabase = await createClient();
+	return infoPenerima(supabase, id, await nomorPermintaanTerbuka(supabase, id));
+}
+
+/**
+ * "Samakan nomor" — nomor klien di dokumen ini dan dokumen aktif lain dari
+ * event yang sama (yang masih memuat nomor lama) diganti nomor klien di
+ * event. Owner yang memutuskan; tidak mengirim apa pun.
+ */
+export async function samakanNomorDokumen(
+	id: string,
+): Promise<{ ok: true; jumlah: number } | { ok: false; error: string }> {
+	await requireOwnerLevel();
+	const supabase = await createClient();
+	const info = await infoPenerima(supabase, id);
+	const beda = info.nomorDokumenBeda;
+	if (!beda) return { ok: false, error: "Nomor di dokumen sudah sama." };
+	const { data: doc } = await supabase
+		.from("documents")
+		.select("event_id")
+		.eq("id", id)
+		.maybeSingle();
+	if (!doc?.event_id)
+		return { ok: false, error: "Dokumen tidak tertaut event." };
+	const { data: rows, error } = await supabase
+		.from("documents")
+		.select("id, client")
+		.eq("event_id", doc.event_id as string)
+		.neq("status", "void");
+	if (error) return { ok: false, error: error.message };
+	const tail = (n: string) => n.replace(/\D/g, "").slice(-9);
+	const kena = (rows ?? []).filter(
+		(r) =>
+			tail(String((r.client as { phone?: string } | null)?.phone ?? "")) ===
+			tail(beda.lama),
+	);
+	for (const r of kena) {
+		const { error: upErr } = await supabase
+			.from("documents")
+			.update({
+				client: { ...(r.client as object), phone: beda.baru },
+			})
+			.eq("id", r.id);
+		if (upErr) return { ok: false, error: upErr.message };
+	}
+	revalidatePath(`/finance/dokumen/${id}`);
+	revalidatePath("/finance/dokumen");
+	return { ok: true, jumlah: kena.length };
 }

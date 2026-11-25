@@ -2,6 +2,7 @@ import "server-only";
 
 import type { AiSchema, AiTool, AiToolContext } from "@/lib/ai/types";
 import { findActiveDoc } from "@/lib/documents/invoice";
+import { infoPenerima, teksPenerima } from "@/lib/documents/penerima";
 import {
 	createQuotationCore,
 	previewQuotation,
@@ -93,9 +94,22 @@ export const kirimDokumen: AiTool = {
 		if ("error" in a) return a;
 		const r = await resolveSendDocument(ctx.supabase, a);
 		if ("error" in r) return r;
+		// Penerima & peringatan sama dengan dialog kirim di app (owner 25 Nov).
+		const info = await infoPenerima(ctx.supabase, a.documentId, r.nomor).catch(
+			(e) => {
+				console.error("[kirim_dokumen] penerima:", e);
+				return null;
+			},
+		);
 		return {
 			ringkasan: r.ringkasan,
 			nomor_wa: `+${r.nomor}`,
+			...(info?.tujuan ? { dikirim_ke: teksPenerima(info.tujuan) } : {}),
+			...(info?.peringatan
+				? {
+						peringatan: `${info.peringatan} Tunjukkan ke owner dan tanyakan nomor tujuan sebelum mengirim.`,
+					}
+				: {}),
 			file: r.namaFile,
 			pesan: r.pesan,
 		};

@@ -15,6 +15,7 @@ import {
 	notifyApprovalNeeded,
 	resolveApprovalNotifications,
 } from "./pending-approval";
+import { infoPenerima, teksPenerima } from "./penerima";
 import { sapaKlien, teksDokumen, teksQuotation } from "./pesan-klien";
 import { sendDocumentCore } from "./send";
 import { computeTotals } from "./totals";
@@ -56,12 +57,22 @@ export async function ownerGroupChatId(supabase: SupabaseClient) {
  */
 export async function offerSendToOwner(
 	supabase: SupabaseClient,
-	opts: { documentIds: string[]; headerHtml: string; pesan?: string | null },
+	opts: {
+		documentIds: string[];
+		headerHtml: string;
+		pesan?: string | null;
+		/** Tujuan WA (mis. pengirim bukti transfer). Kosong = nomor di dokumen. */
+		nomor?: string | null;
+	},
 ): Promise<{ requestId: string | null }> {
 	try {
 		const { data: req, error } = await supabase
 			.from("doc_send_requests")
-			.insert({ document_ids: opts.documentIds, pesan: opts.pesan ?? null })
+			.insert({
+				document_ids: opts.documentIds,
+				pesan: opts.pesan ?? null,
+				nomor: opts.nomor ?? null,
+			})
 			.select("id")
 			.single();
 		if (error || !req) {
@@ -73,10 +84,34 @@ export async function offerSendToOwner(
 		if (!isTelegramConfigured()) return { requestId: req.id as string };
 		const { chatId } = await ownerGroupChatId(supabase);
 		if (!chatId) return { requestId: req.id as string };
-		await sendTelegramMessage(chatId, opts.headerHtml, {
+		// Penerima tampil sebelum tombol ditekan (owner 25 Nov: nota Shella
+		// terkirim ke WO karena nomor tersalin di dokumen).
+		const info = await infoPenerima(
+			supabase,
+			opts.documentIds[0],
+			opts.nomor,
+		).catch((e) => {
+			console.error("[approval] penerima:", e);
+			return null;
+		});
+		const baris = [
+			opts.headerHtml,
+			info?.tujuan
+				? `📱 Dikirim ke: <b>${tgEscape(teksPenerima(info.tujuan))}</b>`
+				: null,
+			info?.peringatan
+				? `⚠️ ${tgEscape(info.peringatan)} Ganti penerima lewat "Edit dulu".`
+				: null,
+		].filter(Boolean);
+		await sendTelegramMessage(chatId, baris.join("\n"), {
 			replyMarkup: [
 				[{ text: "✅ Kirim ke klien", callback_data: `ks:${req.id}` }],
-				[{ text: "✏️ Edit dulu", url: editorUrl(opts.documentIds[0]) }],
+				[
+					{
+						text: info?.peringatan ? "✏️ Edit / ganti penerima" : "✏️ Edit dulu",
+						url: editorUrl(opts.documentIds[0]),
+					},
+				],
 			],
 		});
 		return { requestId: req.id as string };
