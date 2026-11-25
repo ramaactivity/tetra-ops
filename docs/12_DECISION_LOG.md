@@ -1564,3 +1564,17 @@ Kartu Telegram + lonceng begitu bukti baru masuk, dengan tombol yang sama.
 2. Tidak dibuat untuk: nomor tim (users.phone_wa), nomor yang sudah cocok acara mendatang/≤3 hari lalu (cocokNomor), "nama kontak cocok" tanpa kandidat acara. "Mengaku booking" selalu dibuat. "Bukan klien" tidak diusulkan lagi.
 3. Kandidat = nama kontak/nama WA cocok dengan nama klien/judul, pemesan, WO, PIC (beda satu huruf masih cocok); tanggal di nama kontak hanya menambah skor (tanggal acara bisa sudah pindah).
 4. Ops: kartu "Kontak belum terdaftar" di atas Booking Masuk + lonceng. Tombol: Nomor klien (events.client_wa; nomor lain yang sudah ada diganti hanya setelah konfirmasi) · PIC cadangan (extra_pics) · Event lain/Pilih event · Bukan klien. Tanpa pesan WA. "Pemesan" ditunda.
+
+---
+
+## DR-065: Bukti transfer disimpan privat di Cloudflare R2 (Drive Tetra penuh)
+
+**Status:** Accepted (owner 2026-11-25, lewat hermes-ff: "pindahin ke R2 aja deh"; "data / bukti tf sebelumnya minta dibackup juga aja ke r2")
+**Date:** 2026-11-25
+**Latar:** Drive tetraphotobooth terpakai ±120 GB dari batas ±16 GB → semua unggahan Drive gagal ("storage quota has been exceeded").
+
+### Decision
+1. Bukti transfer dari bot (`POST /api/bot/pembayaran/draft`) dan tombol "Ganti bukti" → R2 bucket portal, prefix `bukti-bayar/<yyyy-mm>/<draft_id>.<ext>`, tanpa link publik. `payment_drafts.bukti_storage` = `drive` | `r2`; `bukti_url` = `/api/payment-drafts/<id>/bukti` (hanya owner). Bukti lama di Drive tetap terbaca.
+2. Kiriman ulang bot (pesan_id_wa sama) dengan gambar mengisi draft yang belum punya foto — termasuk yang sudah tercatat (payments.proof_url yang kosong ikut terisi).
+3. Salinan bukti lama: `scripts/backup-bukti-r2.mts` (dry-run default; `--apply` setelah owner setuju). Draft dipindah menunjuk R2; bukti pembayaran manual (link Drive) hanya dicadangkan di `bukti-bayar/pembayaran/`. Tidak ada file Drive yang dihapus.
+4. Unggahan lain (rekap crew, Arsip Nota, foto alat, desain, bukti bayar crew/komisi/penarikan) masih ke Drive — gagal selama Drive penuh.

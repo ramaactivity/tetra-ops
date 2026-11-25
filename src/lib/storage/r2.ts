@@ -168,3 +168,21 @@ export async function r2Delete(paths: string[]): Promise<void> {
 		}),
 	);
 }
+
+/** Simpan objek dari server (PUT lewat URL bertanda tangan, 15 menit). */
+export async function r2Put(
+	path: string,
+	body: Uint8Array,
+	contentType: string,
+): Promise<void> {
+	const r = await fetch(r2UploadUrl(path, contentType, body.byteLength), {
+		method: "PUT",
+		headers: {
+			"content-type": contentType,
+			"content-length": String(body.byteLength),
+		},
+		body: new Uint8Array(body),
+	});
+	if (!r.ok)
+		throw new Error(`R2 put ${r.status}: ${(await r.text()).slice(0, 160)}`);
+}

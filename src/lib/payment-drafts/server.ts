@@ -13,11 +13,6 @@ import {
 import { sendDocumentCore } from "@/lib/documents/send";
 import { computeTotals } from "@/lib/documents/totals";
 import type { DocItem, DocumentRow } from "@/lib/documents/types";
-import {
-	ensureArchiveMonthFolder,
-	uploadFileToFolder,
-} from "@/lib/drive/client";
-import { safeSegment } from "@/lib/drive/naming";
 import { cocokNomor } from "@/lib/events/penerima";
 import {
 	checkPayment,
@@ -26,6 +21,7 @@ import {
 	type PaymentType,
 } from "@/lib/finance/payment-core";
 import { phoneTail } from "@/lib/portal/vendor-signup-core";
+import { r2Put } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
 	isTelegramConfigured,
@@ -342,28 +338,32 @@ export async function receivingBanks(
 	return (data ?? []) as BankLite[];
 }
 
-/** Simpan bukti di Drive TANPA link publik (dibuka lewat route ber-sesi owner). */
+/**
+ * Simpan bukti transfer PRIVAT di Cloudflare R2 (DR-065 — Drive Tetra penuh).
+ * Tanpa link publik: dibuka owner lewat /api/payment-drafts/<id>/bukti.
+ * `bukti_file_id` = path objek R2, `bukti_url` = route ber-sesi itu (dipakai
+ * sebagai bukti pembayaran saat masuk buku).
+ */
 export async function uploadBuktiPrivat(
 	body: Buffer,
 	mime: string,
-	meta: { nama: string | null; nominal: number | null },
-): Promise<{ fileId: string; url: string }> {
-	const now = new Date(Date.now() + 7 * 3600_000);
-	const folder = await ensureArchiveMonthFolder("Bukti DP WA", now);
+	draftId: string,
+): Promise<{
+	bukti_file_id: string;
+	bukti_url: string;
+	bukti_storage: "r2";
+}> {
+	const bulan = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 7);
 	const ext =
 		mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
-	const name = [
-		now.toISOString().slice(0, 10),
-		"Bukti DP",
-		meta.nama ? safeSegment(meta.nama, 50) : null,
-		meta.nominal ? `Rp${meta.nominal.toLocaleString("id-ID")}` : null,
-	]
-		.filter(Boolean)
-		.join(" - ");
-	const f = await uploadFileToFolder(folder.id, `${name}.${ext}`, mime, body, {
-		publicLink: false,
-	});
-	return { fileId: f.id, url: f.webViewLink };
+	const path = `bukti-bayar/${bulan}/${draftId}.${ext}`;
+	await r2Put(path, new Uint8Array(body), mime);
+	const app = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+	return {
+		bukti_file_id: path,
+		bukti_url: `${app}/api/payment-drafts/${draftId}/bukti`,
+		bukti_storage: "r2",
+	};
 }
 
 export function draftUrl(
@@ -457,31 +457,47 @@ export async function handleBotDraft(
 			gerbang: r.gerbang ?? [],
 		},
 	});
-	if (plan.action === "ignore" && existing) return reply(existing);
-
-	// Bukti: unggah sekali. Gagal unggah ≠ gagal simpan (bot boleh kirim ulang).
-	let bukti: { bukti_file_id: string; bukti_url: string } | null = null;
+	// Bukti: unggah sekali (R2, DR-065). Gagal unggah ≠ gagal simpan — bot
+	// boleh kirim ulang pesan yang sama; draft tanpa foto (mis. dibuat saat
+	// Drive penuh) terisi dari kiriman ulang itu, juga yang sudah tercatat.
+	const draftId = existing?.id ?? crypto.randomUUID();
+	let bukti: Awaited<ReturnType<typeof uploadBuktiPrivat>> | null = null;
 	const mime = body.gambar_mime ?? body.mime;
 	if (body.gambar && mime && !existing?.bukti_file_id) {
 		try {
-			const up = await uploadBuktiPrivat(
+			bukti = await uploadBuktiPrivat(
 				Buffer.from(body.gambar, "base64"),
 				mime,
-				{
-					nama: body.nama_klien ?? existing?.nama_klien ?? null,
-					nominal: body.nominal ?? existing?.nominal ?? null,
-				},
+				draftId,
 			);
-			bukti = { bukti_file_id: up.fileId, bukti_url: up.url };
 		} catch (e) {
 			console.error("[payment-drafts] unggah bukti:", e);
 		}
 	}
 
+	if (plan.action === "ignore" && existing) {
+		if (!bukti) return reply(existing);
+		const { data } = await admin
+			.from("payment_drafts")
+			.update(bukti)
+			.eq("id", existing.id)
+			.is("bukti_file_id", null)
+			.select("*")
+			.maybeSingle();
+		// Sudah masuk buku tanpa foto → bukti pembayarannya ikut terisi.
+		if (data && existing.payment_id)
+			await admin
+				.from("payments")
+				.update({ proof_url: bukti.bukti_url })
+				.eq("id", existing.payment_id)
+				.is("proof_url", null);
+		return reply((data ?? existing) as DraftRow);
+	}
+
 	if (plan.action === "insert") {
 		const { data, error } = await admin
 			.from("payment_drafts")
-			.insert({ ...plan.row, ...bukti })
+			.insert({ id: draftId, ...plan.row, ...bukti })
 			.select("*")
 			.single();
 		// Dua kiriman bot balapan: yang kalah membaca baris pemenang.

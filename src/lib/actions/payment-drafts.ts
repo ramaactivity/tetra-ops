@@ -181,7 +181,7 @@ export async function ubahDraft(id: string, edit: DraftEdit): Promise<Result> {
 
 const MIME_OK = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-/** Ganti foto bukti (disimpan privat di Drive). */
+/** Ganti foto bukti (disimpan privat di R2, DR-065). */
 export async function gantiBuktiDraft(formData: FormData): Promise<Result> {
 	const me = await requireOwnerLevel();
 	const id = String(formData.get("id") ?? "");
@@ -198,18 +198,11 @@ export async function gantiBuktiDraft(formData: FormData): Promise<Result> {
 		const up = await uploadBuktiPrivat(
 			Buffer.from(await file.arrayBuffer()),
 			file.type,
-			{
-				nama: d.nama_klien,
-				nominal: d.nominal,
-			},
+			d.id,
 		);
 		const { error } = await createAdminClient()
 			.from("payment_drafts")
-			.update({
-				bukti_file_id: up.fileId,
-				bukti_url: up.url,
-				updated_by: me.profile.id,
-			})
+			.update({ ...up, updated_by: me.profile.id })
 			.eq("id", d.id);
 		if (error) return { ok: false, error: error.message };
 	} catch (e) {
