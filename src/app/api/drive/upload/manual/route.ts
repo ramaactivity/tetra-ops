@@ -1,13 +1,8 @@
 import { revalidatePath } from "next/cache";
 import { type NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import {
-	ensureManualNotaMonthFolder,
-	getDriveConfigErrors,
-	isDriveConfigured,
-	uploadFileToFolder,
-} from "@/lib/drive/client";
 import { buildManualNotaName } from "@/lib/drive/naming";
+import { simpanBerkas } from "@/lib/storage/berkas";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -37,15 +32,6 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json(
 			{ error: "Forbidden — owner-level only" },
 			{ status: 403 },
-		);
-	}
-
-	if (!isDriveConfigured()) {
-		return NextResponse.json(
-			{
-				error: `Drive belum di-set di env: ${getDriveConfigErrors().join(", ")}`,
-			},
-			{ status: 503 },
 		);
 	}
 
@@ -114,28 +100,23 @@ export async function POST(req: NextRequest) {
 		ext,
 	);
 
-	// Folder bulanan (by tanggal upload) — idempotent.
-	let folder: { id: string };
-	try {
-		folder = await ensureManualNotaMonthFolder(uploadDate);
-	} catch (err) {
-		return NextResponse.json(
-			{
-				error:
-					err instanceof Error ? err.message : "Gagal menyiapkan folder Drive",
-			},
-			{ status: 500 },
-		);
-	}
-
 	const buf = Buffer.from(await file.arrayBuffer());
 
+	// DR-066: Drive Tetra penuh → Arsip Nota disimpan privat di R2 (owner).
 	let uploaded: { id: string; webViewLink: string; name: string };
 	try {
-		uploaded = await uploadFileToFolder(folder.id, finalName, mime, buf);
+		const saved = await simpanBerkas(
+			"owner",
+			`arsip-nota/${uploadDate.toISOString().slice(0, 7)}`,
+			finalName,
+			buf,
+			mime,
+			req.nextUrl.origin,
+		);
+		uploaded = { id: saved.key, webViewLink: saved.url, name: finalName };
 	} catch (err) {
 		return NextResponse.json(
-			{ error: err instanceof Error ? err.message : "Drive upload gagal" },
+			{ error: err instanceof Error ? err.message : "Upload gagal" },
 			{ status: 502 },
 		);
 	}
@@ -152,7 +133,7 @@ export async function POST(req: NextRequest) {
 			drive_url: uploaded.webViewLink,
 			drive_file_id: uploaded.id,
 			file_name: uploaded.name,
-			drive_folder_id: folder.id,
+			drive_folder_id: null,
 			upload_year: uploadDate.getFullYear(),
 			upload_month: uploadDate.getMonth() + 1,
 			event_id: eventId,
@@ -165,7 +146,7 @@ export async function POST(req: NextRequest) {
 	if (dbErr) {
 		// File sudah ke-upload tapi DB gagal — surface error, file tetap di Drive.
 		return NextResponse.json(
-			{ error: `Tersimpan di Drive tapi gagal catat DB: ${dbErr.message}` },
+			{ error: `Tersimpan tapi gagal catat DB: ${dbErr.message}` },
 			{ status: 500 },
 		);
 	}

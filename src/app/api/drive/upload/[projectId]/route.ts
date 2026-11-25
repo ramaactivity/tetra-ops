@@ -1,15 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import {
-	createEventFolderInternal,
-	ensureEventCategoryFolderInternal,
-} from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import type { DriveCategory } from "@/lib/drive/categories";
-import {
-	getDriveConfigErrors,
-	isDriveConfigured,
-	uploadFileToFolder,
-} from "@/lib/drive/client";
 import {
 	buildCommissionProofName,
 	buildCrewFeeName,
@@ -20,6 +10,7 @@ import {
 	buildRekapProofName,
 	buildTransportProofName,
 } from "@/lib/drive/naming";
+import { simpanBerkas } from "@/lib/storage/berkas";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -60,15 +51,6 @@ export async function POST(
 		);
 	}
 
-	if (!isDriveConfigured()) {
-		return NextResponse.json(
-			{
-				error: `Drive belum di-set di env: ${getDriveConfigErrors().join(", ")}`,
-			},
-			{ status: 503 },
-		);
-	}
-
 	const { projectId } = await ctx.params;
 	if (!projectId) {
 		return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
@@ -88,22 +70,6 @@ export async function POST(
 	}
 	if (!event) {
 		return NextResponse.json({ error: "Event not found" }, { status: 404 });
-	}
-
-	// Ensure Drive folder exists (lazy-create idempotently)
-	let folderId = event.drive_folder_id as string | null;
-	if (!folderId) {
-		const fr = await createEventFolderInternal(event.id as string);
-		if (fr.error) {
-			return NextResponse.json({ error: fr.error }, { status: 500 });
-		}
-		folderId = fr.folder_id ?? null;
-	}
-	if (!folderId) {
-		return NextResponse.json(
-			{ error: "Drive folder tidak bisa dibuat" },
-			{ status: 500 },
-		);
 	}
 
 	// Parse multipart form
@@ -288,57 +254,45 @@ export async function POST(
 		);
 	}
 
-	// Route into the right per-event subfolder (Nota / Hasil Cetak / Design /
-	// Lainnya) so the Drive structure stays organized.
-	const CATEGORY_BY_KIND: Record<string, DriveCategory> = {
-		payment_proof: "Nota",
-		crew_fee: "Nota",
-		commission: "Nota",
-		event_txn: "Nota",
-		transport_proof: "Nota",
-		// Tanpa baris ini nota biaya lapangan mendarat di folder "Lainnya".
-		nota: "Nota",
-		uang_jalan: "Nota",
-		rekap_proof: "Hasil Cetak",
-		design_frame: "Design",
+	// DR-066: Drive Tetra penuh → semua unggahan per event disimpan privat di
+	// R2. Bukti uang (bayar klien, komisi, transaksi) hanya owner; foto rekap,
+	// nota lapangan, uang jalan, fee crew, desain → owner + crew.
+	const KHUSUS_OWNER = new Set(["payment_proof", "commission", "event_txn"]);
+	const FOLDER_BY_KIND: Record<string, string> = {
+		payment_proof: "bukti-bayar",
+		crew_fee: "fee-crew",
+		commission: "komisi",
+		event_txn: "transaksi",
+		transport_proof: "nota",
+		nota: "nota",
+		uang_jalan: "uang-jalan",
+		rekap_proof: "rekap",
+		design_frame: "desain",
 	};
-	const category: DriveCategory = CATEGORY_BY_KIND[kind] ?? "Lainnya";
-	// Resilient: try the organized subfolder, but NEVER fail the upload over it —
-	// fall back to the (already-ensured) event root folder. The subfolder
-	// resolution adds Drive round-trips; if it's slow/errors we still deliver the
-	// file so the crew rekap submit isn't blocked.
-	let targetFolderId = folderId;
-	try {
-		const sub = await ensureEventCategoryFolderInternal(
-			event.id as string,
-			category,
-		);
-		if (sub.id) targetFolderId = sub.id;
-	} catch {
-		// keep root fallback
-	}
-
 	const arrayBuffer = await file.arrayBuffer();
 	const buf = Buffer.from(arrayBuffer);
 
 	try {
-		const uploaded = await uploadFileToFolder(
-			targetFolderId,
+		const saved = await simpanBerkas(
+			KHUSUS_OWNER.has(kind) ? "owner" : "tim",
+			`event/${event.project_id}/${FOLDER_BY_KIND[kind] ?? "lainnya"}`,
 			finalName,
-			mime,
 			buf,
+			mime,
+			req.nextUrl.origin,
 		);
 		return NextResponse.json({
 			ok: true,
-			url: uploaded.webViewLink,
-			id: uploaded.id,
-			name: uploaded.name,
-			mimeType: uploaded.mimeType,
+			url: saved.url,
+			id: saved.key,
+			name: finalName,
+			mimeType: mime,
 		});
 	} catch (err) {
+		console.error("[upload event]", err);
 		return NextResponse.json(
 			{
-				error: err instanceof Error ? err.message : "Drive upload failed",
+				error: err instanceof Error ? err.message : "Upload gagal",
 			},
 			{ status: 502 },
 		);

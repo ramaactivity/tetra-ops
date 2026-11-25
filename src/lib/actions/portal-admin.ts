@@ -3,9 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createBooking } from "@/lib/actions/bookings";
-import { ensureEventCategoryFolderInternal } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { isDriveConfigured, uploadFileToFolder } from "@/lib/drive/client";
 import { buildPaymentProofName } from "@/lib/drive/naming";
 import { logPaymentCore } from "@/lib/finance/payment-core";
 import { formatDateID, formatRupiah } from "@/lib/format";
@@ -20,6 +18,7 @@ import {
 	sendClientWa,
 } from "@/lib/portal/notify";
 import { redeemPromo } from "@/lib/promo";
+import { simpanBerkas } from "@/lib/storage/berkas";
 import { r2Get, r2SignedUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -193,19 +192,16 @@ async function bookingFormData(s: Sub): Promise<FormData> {
 	return fd;
 }
 
-/** Salin bukti dari Storage portal ke folder Nota event di Drive (arsip, DR-030). */
+/** Salin bukti dari Storage portal ke arsip berkas owner di R2 (DR-030, DR-066). */
 async function archiveProof(
 	s: Sub,
-	eventId: string,
 	projectId: string,
 	today: string,
 ): Promise<string | null> {
-	if (!s.proof_path || !isDriveConfigured()) return null;
+	if (!s.proof_path) return null;
 	try {
 		const file = await r2Get(s.proof_path);
 		if (!file) return null;
-		const folder = await ensureEventCategoryFolderInternal(eventId, "Nota");
-		if (!folder.id) return null;
 		const ext = s.proof_path.split(".").pop() ?? "jpg";
 		const name = buildPaymentProofName(
 			{
@@ -217,13 +213,16 @@ async function archiveProof(
 			},
 			ext,
 		);
-		const up = await uploadFileToFolder(
-			folder.id,
+		// DR-066: arsip di R2 (Drive penuh) — hanya owner yang bisa membuka.
+		const saved = await simpanBerkas(
+			"owner",
+			`event/${projectId}/bukti-bayar`,
 			name,
+			file.bytes,
 			file.type,
-			Buffer.from(file.bytes),
+			process.env.NEXT_PUBLIC_APP_URL ?? "",
 		);
-		return up.webViewLink;
+		return saved.url;
 	} catch (e) {
 		console.error("[portal-admin] arsip bukti:", e);
 		return null;
@@ -289,7 +288,7 @@ export async function acceptPortalPayment(
 			: Number(s.amount) >= Number(before?.remaining_balance ?? 0)
 				? "pelunasan"
 				: "partial";
-	const proofUrl = await archiveProof(s, eventId, projectId as string, today);
+	const proofUrl = await archiveProof(s, projectId as string, today);
 	const pay = await logPaymentCore(
 		await createClient(),
 		{

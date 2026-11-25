@@ -1,13 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import {
-	createDriveFolder,
-	getDriveClient,
-	getDriveConfigErrors,
-	getParentFolderId,
-	isDriveConfigured,
-	uploadFileToFolder,
-} from "@/lib/drive/client";
+import { simpanBerkas } from "@/lib/storage/berkas";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -32,7 +25,6 @@ const ALLOWED_MIME = new Set([
 	"image/gif",
 	"application/pdf",
 ]);
-const ITEMS_FOLDER_NAME = "Tetra Items";
 
 function safeSegment(raw: string, maxLen = 60): string {
 	return raw
@@ -57,46 +49,6 @@ function buildItemImageName(
 	return `${joined}.${ext}`;
 }
 
-/**
- * Lookup-or-create the shared "Items" folder under Drive root. Cached
- * via module memoization (serverless cold start = 1 lookup, subsequent
- * requests reuse). Not durable across deploy — that's fine, folder lookup
- * is cheap.
- */
-let itemsFolderIdCache: string | null = null;
-async function getOrCreateItemsFolder(): Promise<string> {
-	if (itemsFolderIdCache) return itemsFolderIdCache;
-
-	const parentId = getParentFolderId();
-	const drive = await getDriveClient();
-
-	// Search for existing folder
-	const q = parentId
-		? `name = '${ITEMS_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`
-		: `name = '${ITEMS_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-
-	const res = await drive.files.list({
-		q,
-		fields: "files(id, name)",
-		pageSize: 1,
-		supportsAllDrives: true,
-		includeItemsFromAllDrives: true,
-	});
-	const existing = res.data.files?.[0];
-	if (existing?.id) {
-		itemsFolderIdCache = existing.id;
-		return existing.id;
-	}
-
-	// Create
-	const created = await createDriveFolder(
-		ITEMS_FOLDER_NAME,
-		parentId ?? undefined,
-	);
-	itemsFolderIdCache = created.id;
-	return created.id;
-}
-
 export async function POST(
 	req: NextRequest,
 	ctx: { params: Promise<{ itemId: string }> },
@@ -109,15 +61,6 @@ export async function POST(
 		return NextResponse.json(
 			{ error: "Forbidden — owner-level only" },
 			{ status: 403 },
-		);
-	}
-
-	if (!isDriveConfigured()) {
-		return NextResponse.json(
-			{
-				error: `Drive belum di-set di env: ${getDriveConfigErrors().join(", ")}`,
-			},
-			{ status: 503 },
 		);
 	}
 
@@ -173,23 +116,25 @@ export async function POST(
 		ext,
 	);
 
-	let folderId: string;
-	try {
-		folderId = await getOrCreateItemsFolder();
-	} catch (err) {
-		return NextResponse.json(
-			{
-				error: `Gagal akses folder Drive: ${err instanceof Error ? err.message : "unknown"}`,
-			},
-			{ status: 502 },
-		);
-	}
-
 	const arrayBuffer = await file.arrayBuffer();
 	const buf = Buffer.from(arrayBuffer);
 
 	try {
-		const uploaded = await uploadFileToFolder(folderId, finalName, mime, buf);
+		// DR-066: Drive Tetra penuh → foto alat di R2 (owner + crew).
+		const saved = await simpanBerkas(
+			"tim",
+			"alat",
+			finalName,
+			buf,
+			mime,
+			req.nextUrl.origin,
+		);
+		const uploaded = {
+			id: saved.key,
+			webViewLink: saved.url,
+			name: finalName,
+			mimeType: mime,
+		};
 
 		// Persist image_url ke base record sekaligus (UX: user upload = image
 		// langsung ke-set tanpa perlu submit form lagi)

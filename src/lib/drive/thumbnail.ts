@@ -25,6 +25,8 @@ export function driveThumbnailUrl(
 	urlOrId: string | null | undefined,
 	sizePx = 400,
 ): string | null {
+	// Berkas R2 (DR-066) langsung berupa gambar lewat route app.
+	if (urlOrId?.includes("/api/berkas/")) return urlOrId;
 	const id = driveFileId(urlOrId);
 	return id
 		? `https://drive.google.com/thumbnail?id=${id}&sz=w${sizePx}`

@@ -172,7 +172,19 @@ function Row({
 								key={`${it.label}|${it.date}|${it.amount}`}
 								className="flex justify-between gap-3"
 							>
-								<span className="min-w-0 truncate">{ket(it.label)}</span>
+								<span className="min-w-0 truncate">
+									{ket(it.label)}
+									{it.projectId ? (
+										// Biaya acara yang dibayar owner berasal dari rekap: nominal,
+										// pembayar, dan bukti transfernya diubah di Koreksi rekap.
+										<Link
+											href={`/operations/${it.projectId}/rekap`}
+											className="ml-1.5 font-medium text-foreground underline underline-offset-2"
+										>
+											Ubah / bukti
+										</Link>
+									) : null}
+								</span>
 								<span className="tabular shrink-0" data-nominal>
 									{formatRupiah(it.sisa)}
 								</span>

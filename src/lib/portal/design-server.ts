@@ -1,12 +1,11 @@
 import "server-only";
 
-import { ensureEventCategoryFolderInternal } from "@/lib/actions/drive";
 import { appUrl } from "@/lib/app-url";
 import { emitBoothEvent } from "@/lib/booth-sync";
-import { isDriveConfigured, uploadFileToFolder } from "@/lib/drive/client";
 import { buildDesignName } from "@/lib/drive/naming";
 import { eventSpots, spotsNeedingOwnDesign } from "@/lib/events/spots";
 import { designStatusFor, type Stage } from "@/lib/portal/design";
+import { simpanBerkas } from "@/lib/storage/berkas";
 import { r2Get, r2SignedUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tgEscape } from "@/lib/telegram/client";
@@ -335,12 +334,17 @@ export async function approveFromPortal(
 		.eq("id", eventId);
 	if (error) return { approved: false, reason: error.message };
 
-	// Arsip file final ke Drive (Design) + catat sebagai aset desain event.
-	if (isDriveConfigured()) {
-		const folder = await ensureEventCategoryFolderInternal(eventId, "Design");
+	// Arsip file final (DR-066: di R2, bukan Drive yang penuh) + catat sebagai
+	// aset desain event.
+	{
+		const { data: evp } = await admin
+			.from("events")
+			.select("project_id")
+			.eq("id", eventId)
+			.maybeSingle();
 		for (const r of reqs) {
 			const v = r.version as unknown as { file_path: string | null } | null;
-			if (!folder.id || !v?.file_path) continue;
+			if (!v?.file_path) continue;
 			try {
 				const file = await r2Get(v.file_path);
 				if (!file) continue;
@@ -352,25 +356,23 @@ export async function approveFromPortal(
 					},
 					"png",
 				);
-				const up = await uploadFileToFolder(
-					folder.id,
+				const saved = await simpanBerkas(
+					"tim",
+					`event/${evp?.project_id ?? eventId}/desain`,
 					name,
+					file.bytes,
 					"image/png",
-					Buffer.from(file.bytes),
+					process.env.NEXT_PUBLIC_APP_URL ?? "",
 				);
 				await admin.from("event_assets").insert({
 					event_id: eventId,
 					asset_type: "design_frame",
 					label: `Desain ACC klien${r.spot_no > 1 ? ` (spot ${r.spot_no})` : ""}`,
-					url: up.webViewLink,
-					drive_file_id: up.id,
+					url: saved.url,
+					drive_file_id: saved.key,
 				});
-				await admin
-					.from("events")
-					.update({ design_drive_folder_url: up.webViewLink })
-					.eq("id", eventId);
 			} catch (e) {
-				console.error("[design] arsip Drive:", e);
+				console.error("[design] arsip desain:", e);
 			}
 		}
 	}

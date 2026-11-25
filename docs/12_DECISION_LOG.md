@@ -1578,3 +1578,17 @@ Kartu Telegram + lonceng begitu bukti baru masuk, dengan tombol yang sama.
 2. Kiriman ulang bot (pesan_id_wa sama) dengan gambar mengisi draft yang belum punya foto — termasuk yang sudah tercatat (payments.proof_url yang kosong ikut terisi).
 3. Salinan bukti lama: `scripts/backup-bukti-r2.mts` (dry-run default; `--apply` setelah owner setuju). Draft dipindah menunjuk R2; bukti pembayaran manual (link Drive) hanya dicadangkan di `bukti-bayar/pembayaran/`. Tidak ada file Drive yang dihapus.
 4. Unggahan lain (rekap crew, Arsip Nota, foto alat, desain, bukti bayar crew/komisi/penarikan) masih ke Drive — gagal selama Drive penuh.
+
+---
+
+## DR-066: Unggahan crew & modul penting disimpan privat di R2
+
+**Status:** Accepted (owner 2026-11-25: "pindahkan juga semua kebutuhan crew ke r2. dan juga modul2 penting lainnya")
+**Date:** 2026-11-25
+**Lanjutan:** DR-065 (Drive Tetra penuh).
+
+### Decision
+1. Satu penyimpan `simpanBerkas` (src/lib/storage/berkas.ts) → R2 `berkas/<owner|tim>/<folder>/<acak>-<nama>`; dibuka lewat `/api/berkas/…` (wajib login). `owner` = hanya owner; `tim` = owner + crew. Nama file berawalan acak (tidak bisa ditebak). Route unggah lama tetap (bentuk jawaban sama), jadi semua form tidak berubah.
+2. Pindah ke R2: semua unggahan per event (`/api/drive/upload/[projectId]` — foto bukti rekap, nota lapangan, bukti transport/uang jalan, bukti fee crew [tim]; bukti bayar klien, komisi, transaksi event [owner]), Arsip Nota + semua yang memakai `/api/drive/upload/manual` (Catat, talangan, penarikan, lampiran jurnal, nota pembelian) [owner], foto alat [tim], arsip desain ACC klien [tim], arsip bukti bayar portal [owner].
+3. Tetap di Drive: folder event Hasil Cetak/Footage/Softfile (besar, link galeri tamu), ekspor cutoff (sekali jalan). File lama di Drive tetap terbaca; tidak ada yang dihapus.
+4. Biaya acara yang dibayar owner (antrean hutang-piutang "belum settle") di halaman event diberi tautan "Ubah / bukti" ke rekap — nominal, pembayar, dan bukti transfernya dikoreksi di Koreksi rekap (owner 25 Nov, Sa'adah: Adit bayar sewa mobil langsung).
