@@ -2,10 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import type { DraftRow } from "@/lib/payment-drafts/core";
+import { tagihanEvent } from "@/lib/finance/tagihan";
+import { autoConfirmGates, type DraftRow } from "@/lib/payment-drafts/core";
 import {
 	batalCore,
+	hasDuplicate,
 	konfirmasiCore,
+	sisaTagihan,
+	targetForEvent,
 	uploadBuktiPrivat,
 } from "@/lib/payment-drafts/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -86,6 +90,8 @@ export type DraftEdit = {
 	/** YYYY-MM-DD (WIB). */
 	tanggal_transfer: string | null;
 	bank_account_id: string | null;
+	/** Untuk event mana (hermes-ff 25 Nov). undefined = tidak diubah. */
+	event_id?: string;
 };
 
 /**
@@ -104,12 +110,46 @@ export async function ubahDraft(id: string, edit: DraftEdit): Promise<Result> {
 			? edit.tanggal_transfer
 			: null;
 	const keepTime = d.waktu_transfer?.slice(0, 10) === tanggal;
+	const admin = createAdminClient();
+	// Pindah event → target ikut event itu (invoice + Booking Masuk-nya), lepas
+	// dari Booking Masuk lama yang mungkin salah tebak.
+	let target = {
+		booking_inbox_id: d.booking_inbox_id,
+		document_id: d.document_id,
+		event_id: d.event_id,
+	};
+	const pindah = Boolean(edit.event_id && edit.event_id !== d.event_id);
+	if (pindah && edit.event_id) {
+		const t = await targetForEvent(admin, edit.event_id);
+		if (!t)
+			return {
+				ok: false,
+				error: "Event itu sudah dihapus atau dibatalkan — pilih event lain.",
+			};
+		target = t;
+	}
 	const moneyChanged =
+		pindah ||
 		nominal !== d.nominal ||
 		(edit.bank_account_id ?? null) !== d.bank_account_id;
-	const { error } = await createAdminClient()
+	// Syarat & sisa dihitung ulang dengan isian baru (bukan bacaan bot lama).
+	const gerbang = autoConfirmGates({
+		nominal,
+		bankMatched: Boolean(edit.bank_account_id),
+		sisa: await sisaTagihan(admin, target, d.id),
+		confidence: d.confidence,
+		duplicate: await hasDuplicate(admin, {
+			draftId: d.id,
+			nominal,
+			target,
+			client_wa: d.client_wa,
+		}),
+	});
+	const { error } = await admin
 		.from("payment_drafts")
 		.update({
+			...target,
+			gerbang,
 			nominal,
 			nama_pengirim: t(edit.nama_pengirim),
 			bank_pengirim: t(edit.bank_pengirim),
@@ -134,6 +174,8 @@ export async function ubahDraft(id: string, edit: DraftEdit): Promise<Result> {
 		.in("status", ["menunggu", "disetujui"]);
 	if (error) return { ok: false, error: error.message };
 	revalidate(d);
+	if (target.booking_inbox_id && target.booking_inbox_id !== d.booking_inbox_id)
+		revalidatePath(`/operations/booking-masuk/${target.booking_inbox_id}`);
 	return { ok: true };
 }
 
@@ -188,4 +230,70 @@ export async function batalkanDraft(id: string): Promise<Result> {
 	const res = await batalCore(createAdminClient(), d, me.profile.id);
 	if (res.ok) revalidate(d);
 	return res;
+}
+
+/**
+ * "Bukan pembayaran event" (hermes-ff 25 Nov): bukti ditutup dengan alasan,
+ * tidak masuk Billing. Uang masuk lain dicatat owner lewat Catat.
+ */
+export async function tandaiBukanEvent(id: string): Promise<Result> {
+	const me = await requireOwnerLevel();
+	const d = await loadOpen(id);
+	if (typeof d === "string") return { ok: false, error: d };
+	const admin = createAdminClient();
+	const res = await batalCore(admin, d, me.profile.id);
+	if (!res.ok) return res;
+	await admin
+		.from("payment_drafts")
+		.update({
+			catatan_posting: "Bukan pembayaran event — tidak masuk Billing.",
+		})
+		.eq("id", d.id);
+	revalidate(d);
+	return { ok: true };
+}
+
+export type EventPilihan = {
+	id: string;
+	label: string;
+	sublabel: string;
+};
+
+/**
+ * Pilihan event untuk dialog Ubah → "Untuk event": acara mulai 60 hari lalu
+ * (pelunasan sering masuk setelah acara). Disaring di klien (Combobox
+ * mencocokkan nama, tanggal, dan kode PRJ).
+ */
+export async function pilihanEventDraft(): Promise<EventPilihan[]> {
+	await requireOwnerLevel();
+	const sejak = new Date(Date.now() + 7 * 3600_000 - 60 * 86_400_000)
+		.toISOString()
+		.slice(0, 10);
+	// ponytail: ±ratusan acara per tahun → muat sekali; cari di server kalau ribuan.
+	const { data, error } = await createAdminClient()
+		.from("events")
+		.select(
+			"id, project_id, client_name, event_date, grand_total, total_paid, vendor_commission_mode, vendor_commission_amount",
+		)
+		.is("deleted_at", null)
+		.neq("status", "cancelled")
+		.gte("event_date", sejak)
+		.order("event_date")
+		.limit(400);
+	if (error) throw new Error(`events: ${error.message}`);
+	const tgl = (s: string) =>
+		new Date(`${s}T00:00:00Z`).toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "long",
+			year: "numeric",
+			timeZone: "UTC",
+		});
+	return (data ?? []).map((e) => {
+		const { sisa } = tagihanEvent(e);
+		return {
+			id: e.id as string,
+			label: e.client_name as string,
+			sublabel: `${tgl(e.event_date as string)} · ${e.project_id} · ${sisa > 0 ? `sisa Rp${sisa.toLocaleString("id-ID")}` : "lunas"}`,
+		};
+	});
 }

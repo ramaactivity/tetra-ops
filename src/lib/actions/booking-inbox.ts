@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import {
+	postApprovedDrafts,
+	upcomingEventsByPhone,
+} from "@/lib/payment-drafts/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 async function requireOwnerLevel() {
@@ -106,4 +111,56 @@ export async function checkInboxRefresh(
 		status: data.status as string,
 		result: (data.result as string) ?? null,
 	};
+}
+
+/**
+ * "Gabungkan" (hermes-ff 25 Nov): kartu dari bot untuk klien yang sudah punya
+ * event → tautkan ke event itu, sama seperti saat event dibuat dari Booking
+ * Masuk. Bukti transfer kartu ini ikut ke event (eventOfDraft membaca
+ * event_id kartu); yang sudah disetujui langsung masuk buku. Hanya kartu
+ * yang nomornya memang cocok dengan event itu.
+ */
+export async function gabungkanInboxKeEvent(
+	id: string,
+	eventId: string,
+): Promise<Result> {
+	const me = await requireOwnerLevel();
+	const supabase = await createClient();
+	const { data: ib } = await supabase
+		.from("booking_inbox")
+		.select("client_wa, status, event_id")
+		.eq("id", id)
+		.maybeSingle();
+	if (!ib) return { ok: false, error: "Booking Masuk tidak ditemukan." };
+	if (ib.event_id || (ib.status !== "baru" && ib.status !== "diproses"))
+		return { ok: false, error: "Kartu ini sudah jadi event atau dibatalkan." };
+	const admin = createAdminClient();
+	const cocok = await upcomingEventsByPhone(
+		admin,
+		ib.client_wa as string | null,
+	);
+	if (!cocok.some((e) => e.id === eventId))
+		return {
+			ok: false,
+			error:
+				"Nomor kartu ini tidak cocok dengan event itu — gabungkan manual dari halaman event.",
+		};
+	const { error } = await supabase
+		.from("booking_inbox")
+		.update({
+			status: "jadi_event",
+			event_id: eventId,
+			berubah_setelah_event: false,
+			updated_by: me.profile.id,
+		})
+		.eq("id", id)
+		.in("status", ["baru", "diproses"]);
+	if (error) return { ok: false, error: error.message };
+	const dp = await postApprovedDrafts(eventId, me.profile.id);
+	if (dp.failed.length)
+		console.error("[gabungkanInboxKeEvent] bukti disetujui:", dp.failed);
+	revalidatePath("/operations/booking-masuk");
+	revalidatePath(`/operations/booking-masuk/${id}`);
+	revalidatePath("/billing/uang-masuk");
+	return { ok: true };
 }

@@ -18,8 +18,14 @@ import {
 } from "@/lib/booking-inbox/core";
 import { formatDateID } from "@/lib/format";
 import type { DraftRow } from "@/lib/payment-drafts/core";
-import { type SenderHit, searchSender } from "@/lib/payment-drafts/server";
+import {
+	type EventByPhone,
+	type SenderHit,
+	searchSender,
+	upcomingEventsForPhones,
+} from "@/lib/payment-drafts/server";
 import { draftViewsAndBanks } from "@/lib/payment-drafts/view";
+import { phoneTail } from "@/lib/portal/vendor-signup-core";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +60,8 @@ export default async function BookingMasukPage({
 				d.booking_inbox_id,
 				(dpWaiting.get(d.booking_inbox_id) ?? 0) + 1,
 			);
-	const orphans = drafts.filter((d) => !d.booking_inbox_id);
+	// Yang sudah tertaut langsung ke event ditangani di Uang Masuk.
+	const orphans = drafts.filter((d) => !d.booking_inbox_id && !d.event_id);
 	// Cari nama pengirim (mutasi bank → klien mana).
 	let hits: SenderHit[] = [];
 	let searchErr: string | null = null;
@@ -66,6 +73,20 @@ export default async function BookingMasukPage({
 	const orphanView = orphans.length
 		? await draftViewsAndBanks(supabase, orphans)
 		: null;
+	// Kartu terbuka tanpa event yang nomornya sudah punya acara mendatang
+	// (hermes-ff 25 Nov) → ditandai; Gabungkan/Batalkan di halaman detailnya.
+	const terbuka = items.filter(
+		(it) => (it.status === "baru" || it.status === "diproses") && !it.event_id,
+	);
+	const eventOf = await upcomingEventsForPhones(
+		supabase,
+		terbuka.map((it) => it.client_wa),
+	).catch((e) => {
+		console.error("[booking-masuk] event klien:", e);
+		return new Map<string, EventByPhone[]>();
+	});
+	const eventLain = (it: InboxRow) =>
+		terbuka.includes(it) ? (eventOf.get(phoneTail(it.client_wa)) ?? []) : [];
 
 	return (
 		<Container size="lg" className="space-y-3 pb-6">
@@ -93,14 +114,14 @@ export default async function BookingMasukPage({
 
 			{draftErr ? (
 				<p className="rounded-xl bg-rose-50 px-4 py-3 text-[13px] text-rose-800">
-					Bukti DP gagal dimuat: {draftErr.message}
+					Bukti transfer gagal dimuat: {draftErr.message}
 				</p>
 			) : null}
 			{orphanView ? (
 				<div className="space-y-1.5">
 					<p className="text-[13px] text-muted-foreground">
-						Bukti DP yang belum tertaut ke booking mana pun — cocokkan klien
-						lewat nama pengirim, lalu konfirmasi atau batalkan.
+						Bukti transfer yang belum tertaut ke booking mana pun — cocokkan
+						klien lewat nama pengirim, lalu konfirmasi atau batalkan.
 					</p>
 					<DpDraftsSection
 						drafts={orphanView.views}
@@ -127,6 +148,7 @@ export default async function BookingMasukPage({
 							key={it.id}
 							item={it}
 							dpWaiting={dpWaiting.get(it.id) ?? 0}
+							eventLain={eventLain(it).map((e) => e.project_id)}
 						/>
 					))}
 				</ul>
@@ -135,7 +157,15 @@ export default async function BookingMasukPage({
 	);
 }
 
-function InboxCard({ item, dpWaiting }: { item: InboxRow; dpWaiting: number }) {
+function InboxCard({
+	item,
+	dpWaiting,
+	eventLain,
+}: {
+	item: InboxRow;
+	dpWaiting: number;
+	eventLain: string[];
+}) {
 	const d = item.data ?? {};
 	const missing = missingFields(d);
 	const open = item.status === "baru" || item.status === "diproses";
@@ -153,7 +183,7 @@ function InboxCard({ item, dpWaiting }: { item: InboxRow; dpWaiting: number }) {
 						<p className="truncate text-[12.5px] text-muted-foreground">
 							{item.client_name ?? "—"}
 							{item.dp_dilaporkan_at
-								? ` · DP dilaporkan ${formatDateID(item.dp_dilaporkan_at)}`
+								? ` · ${eventLain.length ? "Bukti transfer" : "DP"} dilaporkan ${formatDateID(item.dp_dilaporkan_at)}`
 								: ""}
 						</p>
 					</div>
@@ -162,8 +192,13 @@ function InboxCard({ item, dpWaiting }: { item: InboxRow; dpWaiting: number }) {
 						{dpWaiting > 0 ? (
 							<span className="inline-flex h-6 items-center rounded-full bg-amber-100 px-2.5 text-[12px] font-semibold text-amber-800">
 								{dpWaiting > 1
-									? `${dpWaiting} bukti DP menunggu`
-									: "Bukti DP menunggu"}
+									? `${dpWaiting} bukti transfer menunggu`
+									: "Bukti transfer menunggu"}
+							</span>
+						) : null}
+						{eventLain.length ? (
+							<span className="inline-flex h-6 items-center rounded-full bg-sky-100 px-2.5 text-[12px] font-semibold text-sky-800">
+								Klien sudah punya event {eventLain.join(", ")}
 							</span>
 						) : null}
 						{item.berubah_setelah_event ? (

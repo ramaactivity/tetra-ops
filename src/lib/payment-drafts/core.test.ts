@@ -9,6 +9,7 @@ import {
 	BotDraftSchema,
 	type DraftContext,
 	type DraftRow,
+	jenisBayar,
 	matchBankAccount,
 	planDraftUpsert,
 } from "./core";
@@ -185,4 +186,43 @@ test("kirim ulang tanpa gambar/isian tidak menghapus yang tersimpan", () => {
 	assert.equal(p.patch.bank_pengirim, "Mandiri");
 	assert.equal(p.patch.teks_mentah, "BI Fast 700.000");
 	assert.equal(p.patch.status, "disetujui");
+});
+
+test("jenis pembayaran: lunas > DP > cicilan", () => {
+	// Shella: total 2,5jt, sudah 500rb, bukti 2jt → pelunasan.
+	assert.equal(
+		jenisBayar({ terbayar: 500_000, sisa: 2_000_000, nominal: 2_000_000 }),
+		"pelunasan",
+	);
+	assert.equal(
+		jenisBayar({ terbayar: 0, sisa: 2_500_000, nominal: 500_000 }),
+		"dp",
+	);
+	assert.equal(
+		jenisBayar({ terbayar: 0, sisa: 2_500_000, nominal: 2_500_000 }),
+		"pelunasan",
+	);
+	assert.equal(
+		jenisBayar({ terbayar: 500_000, sisa: 2_000_000, nominal: 1_000_000 }),
+		"partial",
+	);
+	// Nominal belum terbaca: tidak pernah dianggap lunas.
+	assert.equal(
+		jenisBayar({ terbayar: 0, sisa: 2_000_000, nominal: null }),
+		"dp",
+	);
+});
+
+test("event_id dari bot: uuid valid dipakai, sampah diabaikan (bukan 400)", () => {
+	const base = { pesan_id_wa: "abc123", sumber: "client_only" as const };
+	const ok = BotDraftSchema.parse({
+		...base,
+		event_id: "2d89a267-f070-4670-a16a-f48483f29fd8",
+	});
+	assert.equal(ok.event_id, "2d89a267-f070-4670-a16a-f48483f29fd8");
+	assert.equal(
+		BotDraftSchema.parse({ ...base, event_id: "PRJ-1" }).event_id,
+		null,
+	);
+	assert.equal(BotDraftSchema.parse(base).event_id, undefined);
 });

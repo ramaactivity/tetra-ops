@@ -19,6 +19,7 @@ import {
 	uploadFileToFolder,
 } from "@/lib/drive/client";
 import { safeSegment } from "@/lib/drive/naming";
+import { cocokNomor } from "@/lib/events/penerima";
 import {
 	checkPayment,
 	logPaymentCore,
@@ -36,6 +37,8 @@ import {
 	type BankLite,
 	BotDraftSchema,
 	type DraftRow,
+	JENIS_BAYAR_LABEL,
+	jenisBayar,
 	planDraftUpsert,
 } from "./core";
 import { type PembayaranTercatat, signedRequest, webhookUrl } from "./webhook";
@@ -52,6 +55,110 @@ export type DraftTarget = {
 	event_id: string | null;
 };
 
+const EVENT_PHONE_SELECT =
+	"id, project_id, client_name, event_date, client_wa, pic_wa, channel, vendor_contact, extra_pics, booker_contact:contacts!events_booker_contact_id_fkey(name, phone), pic_contact:contacts!events_pic_contact_id_fkey(phone)";
+
+export type EventByPhone = {
+	id: string;
+	project_id: string;
+	client_name: string;
+	event_date: string;
+	booker: string | null;
+};
+
+/**
+ * Acara mendatang yang nomornya cocok — aturan yang sama dengan
+ * /api/bot/klien (cocokNomor: vendor → client_wa → PIC → pemesan → PIC
+ * cadangan). Kasus Shella 25 Nov: invoice masih memuat nomor pemesan, padahal
+ * nomor klien di event sudah dibetulkan.
+ */
+export async function upcomingEventsByPhone(
+	admin: SupabaseClient,
+	phone: string | null,
+): Promise<EventByPhone[]> {
+	const tail = phoneTail(phone);
+	return (await upcomingEventsForPhones(admin, [phone])).get(tail) ?? [];
+}
+
+/** Banyak nomor sekaligus (daftar Booking Masuk) — kunci = 9 digit terakhir. */
+export async function upcomingEventsForPhones(
+	admin: SupabaseClient,
+	phones: Array<string | null>,
+): Promise<Map<string, EventByPhone[]>> {
+	const tails = [
+		...new Set(phones.map((p) => phoneTail(p)).filter((t) => t.length === 9)),
+	];
+	const out = new Map<string, EventByPhone[]>();
+	if (!tails.length) return out;
+	// ponytail: semua acara mendatang dimuat lalu disaring (puluhan baris) —
+	// sama dengan /api/bot/klien; pindah ke RPC berindeks kalau sudah ribuan.
+	const { data, error } = await admin
+		.from("events")
+		.select(EVENT_PHONE_SELECT)
+		.is("deleted_at", null)
+		.eq("is_demo", false)
+		.neq("status", "cancelled")
+		.gte("event_date", todayWIB())
+		.order("event_date");
+	if (error) throw new Error(`events: ${error.message}`);
+	for (const e of data ?? []) {
+		const b = (
+			Array.isArray(e.booker_contact) ? e.booker_contact[0] : e.booker_contact
+		) as { name?: string | null } | null;
+		const row: EventByPhone = {
+			id: e.id as string,
+			project_id: e.project_id as string,
+			client_name: e.client_name as string,
+			event_date: e.event_date as string,
+			booker: b?.name ?? null,
+		};
+		for (const t of tails)
+			if (cocokNomor(e as Parameters<typeof cocokNomor>[0], t))
+				out.set(t, [...(out.get(t) ?? []), row]);
+	}
+	return out;
+}
+
+/**
+ * Target untuk event tertentu (event_id dari bot atau pilihan owner): event +
+ * invoice aktifnya + Booking Masuk yang sudah jadi event itu. null = event
+ * tidak ada / dihapus / dibatalkan.
+ */
+export async function targetForEvent(
+	admin: SupabaseClient,
+	eventId: string,
+): Promise<DraftTarget | null> {
+	const [{ data: ev }, { data: inv }, { data: ib }] = await Promise.all([
+		admin
+			.from("events")
+			.select("id, status, deleted_at")
+			.eq("id", eventId)
+			.maybeSingle(),
+		admin
+			.from("documents")
+			.select("id")
+			.eq("event_id", eventId)
+			.eq("doc_type", "invoice")
+			.neq("status", "void")
+			.order("created_at", { ascending: false })
+			.limit(1)
+			.maybeSingle(),
+		admin
+			.from("booking_inbox")
+			.select("id")
+			.eq("event_id", eventId)
+			.limit(1)
+			.maybeSingle(),
+	]);
+	// Event selesai/di-settle tetap boleh menerima pelunasan (checkPayment).
+	if (!ev || ev.deleted_at || ev.status === "cancelled") return null;
+	return {
+		booking_inbox_id: (ib?.id as string | undefined) ?? null,
+		document_id: (inv?.id as string | undefined) ?? null,
+		event_id: eventId,
+	};
+}
+
 /** Tagihan klien: invoice/quotation acuan + Booking Masuk + event-nya. */
 export async function resolveDraftTarget(
 	admin: SupabaseClient,
@@ -59,8 +166,13 @@ export async function resolveDraftTarget(
 		client_wa: string | null;
 		wa_jid: string | null;
 		invoice_no: string | null;
+		event_id?: string | null;
 	},
 ): Promise<DraftTarget> {
+	if (q.event_id) {
+		const t = await targetForEvent(admin, q.event_id);
+		if (t) return t;
+	}
 	const docs = await loadClientDocs(admin, { jid: q.wa_jid, wa: q.client_wa });
 	let doc = q.invoice_no
 		? (docs.find((d) => d.doc_number === q.invoice_no) ?? null)
@@ -81,6 +193,20 @@ export async function resolveDraftTarget(
 	}
 	doc = doc ?? pickPrimaryDoc(docs);
 	const inbox = (await inboxForDocs(admin, docs, q.client_wa))[0] ?? null;
+	// Tidak ada dokumen yang cocok → cari acara mendatang lewat nomor. Satu =
+	// target; lebih dari satu = owner memilih. Ada Booking Masuk baru tanpa
+	// event = bisa jadi booking kedua → juga owner yang memilih (kartu
+	// "Klien sudah punya event" di Booking Masuk), jangan ditebak.
+	if (!doc && !inbox) {
+		const evs = await upcomingEventsByPhone(admin, q.client_wa).catch((e) => {
+			console.error("[payment-drafts] cari event lewat nomor:", e);
+			return [];
+		});
+		if (evs.length === 1) {
+			const t = await targetForEvent(admin, evs[0].id);
+			if (t) return t;
+		}
+	}
 	return {
 		booking_inbox_id: inbox?.id ?? null,
 		document_id: doc?.id ?? null,
@@ -89,23 +215,28 @@ export async function resolveDraftTarget(
 }
 
 /**
- * Sisa tagihan yang masih boleh dibayar: event (aturan checkPayment) atau
- * total invoice/quotation lepas, dikurangi draft lain yang sudah disetujui
- * tapi belum masuk buku. null = tagihan tidak ditemukan.
+ * Tagihan yang masih boleh dibayar: event (aturan checkPayment) atau total
+ * invoice/quotation lepas, dikurangi draft lain yang sudah disetujui tapi
+ * belum masuk buku. `terbayar` = sudah masuk buku + draft disetujui itu
+ * (dasar jenis DP/Cicilan/Pelunasan). null = tagihan tidak ditemukan.
  */
-export async function sisaTagihan(
+export async function tagihanDraft(
 	admin: SupabaseClient,
 	t: DraftTarget,
 	excludeDraftId?: string,
-): Promise<number | null> {
+): Promise<{ sisa: number; terbayar: number } | null> {
 	let base: number | null = null;
+	let masukBuku = 0;
 	if (t.event_id) {
 		const g = await checkPayment(admin, {
 			eventId: t.event_id,
 			amount: 0,
 			paymentDate: todayWIB(),
 		});
-		base = g.ok ? g.sisaSebelum : null;
+		if (g.ok) {
+			base = g.sisaSebelum;
+			masukBuku = g.billable - g.sisaSebelum;
+		}
 	} else if (t.document_id) {
 		const { data: d } = await admin
 			.from("documents")
@@ -133,7 +264,16 @@ export async function sisaTagihan(
 	const held = (pending ?? [])
 		.filter((p) => p.id !== excludeDraftId)
 		.reduce((s, p) => s + (Number(p.nominal) || 0), 0);
-	return Math.max(0, base - held);
+	return { sisa: Math.max(0, base - held), terbayar: masukBuku + held };
+}
+
+/** Sisa tagihan saja (lihat tagihanDraft). */
+export async function sisaTagihan(
+	admin: SupabaseClient,
+	t: DraftTarget,
+	excludeDraftId?: string,
+): Promise<number | null> {
+	return (await tagihanDraft(admin, t, excludeDraftId))?.sisa ?? null;
 }
 
 /**
@@ -236,7 +376,9 @@ export function draftUrl(
 	if (d.booking_inbox_id)
 		return `${base}/operations/booking-masuk/${d.booking_inbox_id}`;
 	if (d.document_id) return `${base}/finance/dokumen/${d.document_id}`;
-	return `${base}/operations/booking-masuk`;
+	// Tertaut langsung ke event (event_id dari bot) atau belum tertaut sama
+	// sekali → dikonfirmasi di Uang Masuk.
+	return `${base}/billing/uang-masuk`;
 }
 
 export type BotDraftResponse = {
@@ -275,8 +417,20 @@ export async function handleBotDraft(
 		.eq("pesan_id_wa", body.pesan_id_wa)
 		.maybeSingle();
 	const existing = found as DraftRow | null;
-	const target: DraftTarget =
-		existing?.document_id || existing?.booking_inbox_id
+	// event_id dari bot menang atas tebakan lama yang belum punya event
+	// (Shella 25 Nov: draft tertaut ke Booking Masuk palsu tanpa event).
+	const fromBot =
+		body.event_id && !existing?.event_id
+			? await targetForEvent(admin, body.event_id)
+			: null;
+	const target: DraftTarget = fromBot
+		? {
+				booking_inbox_id:
+					existing?.booking_inbox_id ?? fromBot.booking_inbox_id,
+				document_id: existing?.document_id ?? fromBot.document_id,
+				event_id: fromBot.event_id,
+			}
+		: existing?.document_id || existing?.booking_inbox_id
 			? {
 					booking_inbox_id: existing.booking_inbox_id,
 					document_id: existing.document_id,
@@ -492,12 +646,11 @@ async function postDraft(
 		.select("id")
 		.maybeSingle();
 	if (!claimed) return "skip";
-	const paymentType: PaymentType =
-		g.sisaSesudah <= 0
-			? "pelunasan"
-			: g.billable - g.sisaSebelum <= 0
-				? "dp"
-				: "partial";
+	const paymentType: PaymentType = jenisBayar({
+		terbayar: g.billable - g.sisaSebelum,
+		sisa: g.sisaSebelum,
+		nominal: d.nominal,
+	});
 	try {
 		const res = await logPaymentCore(
 			admin,
@@ -695,9 +848,9 @@ export async function offerDraftToOwner(d: DraftRow): Promise<void> {
 		(ib?.client_name as string | undefined) ??
 		d.nama_klien ??
 		"klien belum dikenali";
-	const sisa =
+	const tagihan =
 		d.status === "menunggu"
-			? await sisaTagihan(
+			? await tagihanDraft(
 					admin,
 					{
 						booking_inbox_id: d.booking_inbox_id,
@@ -707,11 +860,15 @@ export async function offerDraftToOwner(d: DraftRow): Promise<void> {
 					d.id,
 				)
 			: null;
+	const sisa = tagihan?.sisa ?? null;
+	const jenis = tagihan
+		? JENIS_BAYAR_LABEL[jenisBayar({ ...tagihan, nominal: d.nominal })]
+		: "transfer";
 	const nominal = d.nominal ? rpx(d.nominal) : "nominal belum terbaca";
 	const bank =
 		[d.bank_pengirim, d.bank_tujuan].filter(Boolean).join(" → ") || "bank ?";
 	const lines = [
-		`💸 <b>Bukti transfer masuk</b> — ${tgEscape(klien)}${ev ? ` (${ev.project_id})` : ""}`,
+		`💸 <b>Bukti ${jenis} masuk</b> — ${tgEscape(klien)}${ev ? ` (${ev.project_id})` : ""}`,
 		`<b>${nominal}</b> · ${tgEscape(bank)}`,
 		`Pengirim: ${tgEscape(d.nama_pengirim ?? "—")}`,
 	];
@@ -783,7 +940,7 @@ export async function offerDraftToOwner(d: DraftRow): Promise<void> {
 			user_id: u.id,
 			severity: "warning",
 			category: "financial",
-			title: `Bukti transfer masuk: ${nominal} dari ${klien}`,
+			title: `Bukti ${jenis} masuk: ${nominal} dari ${klien}`,
 			body: "Cocokkan dengan mutasi bank, lalu konfirmasi di Uang Masuk.",
 			entity_type: "payment_draft",
 			entity_id: d.id,

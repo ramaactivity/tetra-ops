@@ -6,7 +6,6 @@ import {
 } from "@/components/payment-drafts/dp-drafts-section";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { DraftRow } from "@/lib/payment-drafts/core";
-import { sisaTagihan } from "@/lib/payment-drafts/server";
 import { draftViewsAndBanks } from "@/lib/payment-drafts/view";
 import { createClient } from "@/lib/supabase/server";
 
@@ -65,57 +64,33 @@ export default async function UangMasukPage() {
 	const evOf = new Map((events ?? []).map((e) => [e.id as string, e]));
 
 	const { views, banks } = await draftViewsAndBanks(supabase, drafts);
-	const withContext: DraftView[] = await Promise.all(
-		views.map(async (v, i) => {
-			const d = drafts[i];
-			const evId = eventIdOf(d);
-			const ev = evId ? evOf.get(evId) : undefined;
-			const ib = inboxOf.get(d.booking_inbox_id ?? "");
-			const doc = docOf.get(d.document_id ?? "");
-			const klien = ev
+	const withContext: DraftView[] = views.map((v, i) => {
+		const d = drafts[i];
+		const evId = eventIdOf(d);
+		const ev = evId ? evOf.get(evId) : undefined;
+		const ib = inboxOf.get(d.booking_inbox_id ?? "");
+		const doc = docOf.get(d.document_id ?? "");
+		const klien = ev
+			? {
+					nama: ev.client_name as string,
+					href: `/operations/${ev.project_id}`,
+				}
+			: ib
 				? {
-						nama: ev.client_name as string,
-						href: `/operations/${ev.project_id}`,
+						nama: ib.client_name as string,
+						href: `/operations/booking-masuk/${ib.id}`,
 					}
-				: ib
+				: doc
 					? {
-							nama: ib.client_name as string,
-							href: `/operations/booking-masuk/${ib.id}`,
+							nama: (doc.client as { name?: string })?.name ?? "Klien",
+							href: `/finance/dokumen/${doc.id}`,
 						}
-					: doc
-						? {
-								nama: (doc.client as { name?: string })?.name ?? "Klien",
-								href: `/finance/dokumen/${doc.id}`,
-							}
-						: d.nama_klien
-							? { nama: d.nama_klien, href: null }
-							: null;
-			const sisa =
-				OPEN.has(d.status) && d.nominal
-					? await sisaTagihan(
-							supabase,
-							{
-								booking_inbox_id: d.booking_inbox_id,
-								document_id: d.document_id,
-								event_id: evId,
-							},
-							d.id,
-						).catch(() => null)
-					: null;
-			return {
-				...v,
-				klien,
-				adaEvent: Boolean(ev),
-				sisa:
-					sisa == null
-						? null
-						: {
-								sebelum: sisa,
-								sesudah: Math.max(0, sisa - (d.nominal ?? 0)),
-							},
-			};
-		}),
-	);
+					: d.nama_klien
+						? { nama: d.nama_klien, href: null }
+						: null;
+		// Sisa tagihan & jenis sudah dihitung di draftViewsAndBanks.
+		return { ...v, klien, adaEvent: Boolean(ev) };
+	});
 	const open = withContext.filter((v) => OPEN.has(v.status));
 	const done = withContext.filter((v) => !OPEN.has(v.status));
 

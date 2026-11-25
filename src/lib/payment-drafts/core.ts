@@ -63,6 +63,11 @@ export const BotDraftSchema = z.object({
 	gambar_mime: z.enum(["image/jpeg", "image/png", "image/webp"]).nullish(),
 	/** Nama lama untuk gambar_mime. */
 	mime: z.enum(["image/jpeg", "image/png", "image/webp"]).nullish(),
+	/**
+	 * Event yang sudah dikenali bot (hermes-ff, 25 Nov 2026). Valid → langsung
+	 * jadi target; tidak valid/dibatalkan → diabaikan, pencarian biasa jalan.
+	 */
+	event_id: z.uuid().nullish().catch(null),
 });
 export type BotDraftInput = z.output<typeof BotDraftSchema>;
 
@@ -263,4 +268,27 @@ export function planDraftUpsert(
 		},
 		gates,
 	};
+}
+
+/** Sama dengan PAYMENT_TYPES di payment-core (modul itu server-only). */
+export type JenisBayar = "dp" | "partial" | "pelunasan";
+export const JENIS_BAYAR_LABEL: Record<JenisBayar, string> = {
+	dp: "DP",
+	partial: "Cicilan",
+	pelunasan: "Pelunasan",
+};
+
+/**
+ * Jenis pembayaran sebuah bukti (hermes-ff 25 Nov): menutup sisa → Pelunasan;
+ * belum ada yang dibayar → DP; selebihnya Cicilan. Satu aturan untuk label
+ * (Uang Masuk, Booking Masuk, Telegram) dan payment_type saat masuk buku.
+ * `terbayar` sudah termasuk bukti lain yang disetujui tapi belum masuk buku.
+ */
+export function jenisBayar(t: {
+	terbayar: number;
+	sisa: number;
+	nominal: number | null;
+}): JenisBayar {
+	if (t.nominal && t.nominal >= t.sisa) return "pelunasan";
+	return t.terbayar <= 0 ? "dp" : "partial";
 }

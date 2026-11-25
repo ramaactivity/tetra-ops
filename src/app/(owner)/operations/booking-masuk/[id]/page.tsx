@@ -11,6 +11,7 @@ import {
 	InboxOpenActions,
 	InboxRefreshButton,
 } from "@/components/booking-inbox/inbox-actions";
+import { InboxExistingEventBanner } from "@/components/booking-inbox/inbox-existing-event-banner";
 import { InboxStatusBadge } from "@/components/booking-inbox/inbox-status-badge";
 import { Container } from "@/components/layout/container";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
@@ -25,7 +26,10 @@ import {
 import { inboxToBookingDefaults } from "@/lib/booking-inbox/defaults";
 import { openSourceDoc } from "@/lib/booking-inbox/klien-data";
 import { formatDateID, formatPhoneLocal } from "@/lib/format";
-import { loadDraftsForBooking } from "@/lib/payment-drafts/server";
+import {
+	loadDraftsForBooking,
+	upcomingEventsByPhone,
+} from "@/lib/payment-drafts/server";
 import { draftViewsAndBanks } from "@/lib/payment-drafts/view";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -106,6 +110,20 @@ export default async function BookingMasukDetailPage({
 	const diffs =
 		event && item.berubah_setelah_event ? await diffWithEvent(item, event) : [];
 
+	// Kartu dari bot untuk klien yang sudah punya acara mendatang (hermes-ff
+	// 25 Nov) → tawarkan Gabungkan / Batalkan. Gagal baca = tanpa tawaran, dicatat.
+	const eventLain =
+		open && !item.event_id
+			? await upcomingEventsByPhone(supabase, item.client_wa).catch((e) => {
+					console.error("[booking-masuk] event klien:", e);
+					return [];
+				})
+			: [];
+	const jenisLapor =
+		eventLain.length > 0
+			? "Bukti transfer"
+			: (draftViews.find((v) => v.jenis)?.jenis ?? "DP");
+
 	const title = d.nama_acara || item.client_name || "Booking masuk";
 	const waLink = item.client_wa
 		? whatsappUrl(item.client_wa, `Halo ${item.client_name ?? ""}`.trim())
@@ -128,13 +146,24 @@ export default async function BookingMasukDetailPage({
 							{item.client_name ?? "—"}
 							{item.client_wa ? ` · ${formatPhoneLocal(item.client_wa)}` : ""}
 							{item.dp_dilaporkan_at
-								? ` · DP dilaporkan ${formatDateID(item.dp_dilaporkan_at)}`
+								? ` · ${jenisLapor} dilaporkan ${formatDateID(item.dp_dilaporkan_at)}`
 								: ""}
 							{item.sumber === "admin" ? " (dikonfirmasi admin)" : ""}
 						</p>
 					</div>
 					<InboxStatusBadge status={item.status} />
 				</div>
+
+				{eventLain.length > 0 ? (
+					<InboxExistingEventBanner
+						inboxId={item.id}
+						events={eventLain.map((e) => ({
+							id: e.id,
+							project_id: e.project_id,
+							label: `${e.client_name} · ${formatDateID(e.event_date)}`,
+						}))}
+					/>
+				) : null}
 
 				<div className="flex flex-wrap items-center gap-2">
 					{open ? (

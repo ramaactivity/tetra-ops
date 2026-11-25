@@ -2,8 +2,9 @@
 
 import { Check, ImageUp, Loader2, Pencil, Send, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -22,6 +23,8 @@ import {
 	batalkanDraft,
 	gantiBuktiDraft,
 	konfirmasiDraft,
+	pilihanEventDraft,
+	tandaiBukanEvent,
 	ubahDraft,
 } from "@/lib/actions/payment-drafts";
 import { compressImage } from "@/lib/crew/image-compression";
@@ -53,8 +56,14 @@ export type DraftView = {
 	klien?: { nama: string; href: string | null } | null;
 	/** Event klien sudah ada → konfirmasi langsung masuk buku. */
 	adaEvent?: boolean;
-	/** Sisa tagihan sebelum → sesudah bukti ini dicatat. */
+	/** Sisa tagihan sebelum → sesudah bukti ini dicatat (negatif = lebih bayar). */
 	sisa?: { sebelum: number; sesudah: number } | null;
+	/** "DP" | "Cicilan" | "Pelunasan" — null kalau tagihan belum ketemu. */
+	jenis?: string | null;
+	/** Event yang sekarang ditautkan (dialog Ubah → "Untuk event"). */
+	event?: { id: string; label: string } | null;
+	/** Nama tidak tertera di bukti → saran dari klien/pemesan (Rama memilih). */
+	saranPengirim?: string[];
 };
 
 export type BankOption = { value: string; label: string };
@@ -73,6 +82,8 @@ const STATUS: Record<DraftView["status"], { label: string; cls: string }> = {
 };
 
 const rp = (n: number | null) => (n ? `Rp${n.toLocaleString("id-ID")}` : "—");
+const sisaLabel = (n: number) =>
+	n < 0 ? `lebih ${rp(-n)}` : n > 0 ? rp(n) : "lunas";
 
 /**
  * Antrean bukti DP dari WA untuk satu Booking Masuk (DR-055). Draft tidak
@@ -82,7 +93,7 @@ export function DpDraftsSection({
 	drafts,
 	banks,
 	hasEvent,
-	title = "Bukti DP dari WA",
+	title = "Bukti transfer dari WA",
 }: {
 	drafts: DraftView[];
 	banks: BankOption[];
@@ -142,10 +153,11 @@ function DraftRow({
 	const st = STATUS[d.status];
 	const bankLine =
 		[d.bank_pengirim, d.bank_tujuan].filter(Boolean).join(" → ") || "—";
+	const jenis = d.jenis ? d.jenis.toLowerCase() : "transfer";
 
 	async function batal() {
 		const ok = await confirm({
-			title: "Batalkan bukti DP ini?",
+			title: `Batalkan bukti ${jenis} ini?`,
 			description: "Draft tetap tersimpan sebagai jejak dan tidak masuk buku.",
 			confirmLabel: "Batalkan",
 			variant: "destructive",
@@ -154,7 +166,7 @@ function DraftRow({
 		start(async () => {
 			const res = await batalkanDraft(d.id);
 			if (!res.ok) return void toast.error(res.error ?? res.warning);
-			toast.success("Bukti DP dibatalkan");
+			toast.success(`Bukti ${jenis} dibatalkan`);
 			router.refresh();
 		});
 	}
@@ -190,7 +202,9 @@ function DraftRow({
 					title="Nama pemilik rekening pengirim — cocokkan dengan mutasi bank"
 				>
 					{d.nama_pengirim ?? (
-						<span className="text-amber-700">Nama pengirim kosong</span>
+						<span className="text-[13px] font-normal text-amber-700">
+							Tidak tertera di bukti — isi dari mutasi
+						</span>
 					)}
 				</span>
 			</div>
@@ -213,6 +227,11 @@ function DraftRow({
 				)}
 			</span>
 			<div className="mt-1.5 flex flex-wrap items-center gap-1.5 md:mt-0">
+				{d.jenis ? (
+					<span className="rounded-full bg-secondary px-2 py-0.5 text-[12px] font-medium text-foreground">
+						{d.jenis}
+					</span>
+				) : null}
 				<span
 					className={cn(
 						"rounded-full px-2 py-0.5 text-[12px] font-medium",
@@ -266,7 +285,7 @@ function DraftRow({
 								data-nominal
 								className="tabular font-medium text-foreground"
 							>
-								{d.sisa.sesudah > 0 ? rp(d.sisa.sesudah) : "lunas"}
+								{sisaLabel(d.sisa.sesudah)}
 							</span>
 						</>
 					) : null}
@@ -431,7 +450,7 @@ function KonfirmasiDialog({
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>
-						Konfirmasi{" "}
+						Konfirmasi {d.jenis ?? "pembayaran"}{" "}
 						<span data-nominal className="tabular">
 							{rp(d.nominal)}
 						</span>
@@ -449,7 +468,7 @@ function KonfirmasiDialog({
 								</span>{" "}
 								→{" "}
 								<span data-nominal className="tabular">
-									{lunas ? "lunas" : rp(d.sisa.sesudah)}
+									{sisaLabel(d.sisa.sesudah)}
 								</span>
 								.
 							</>
@@ -536,13 +555,50 @@ function UbahDialog({
 	onClose: () => void;
 }) {
 	const router = useRouter();
+	const confirm = useConfirm();
 	const [nominal, setNominal] = useState(d.nominal ?? 0);
 	const [nama, setNama] = useState(d.nama_pengirim ?? "");
 	const [bankDari, setBankDari] = useState(d.bank_pengirim ?? "");
 	const [bankKe, setBankKe] = useState(d.bank_tujuan ?? "");
 	const [tanggal, setTanggal] = useState(d.tanggal);
 	const [rekening, setRekening] = useState(d.bank_account_id ?? "");
+	const [eventId, setEventId] = useState(d.event?.id ?? "");
+	const [events, setEvents] = useState<ComboboxOption[] | null>(null);
 	const [pending, start] = useTransition();
+	const jenis = d.jenis ? d.jenis.toLowerCase() : "transfer";
+
+	// Daftar event dimuat saat dialog dibuka (disaring di Combobox).
+	useEffect(() => {
+		let aktif = true;
+		pilihanEventDraft()
+			.then((rows) => {
+				if (!aktif) return;
+				const opts = rows.map((r) => ({
+					value: r.id,
+					label: r.label,
+					sublabel: r.sublabel,
+				}));
+				// Event yang sudah tertaut tetap muncul walau di luar 60 hari.
+				if (d.event && !opts.some((o) => o.value === d.event?.id))
+					opts.unshift({
+						value: d.event.id,
+						label: d.event.label,
+						sublabel: "",
+					});
+				setEvents(opts);
+			})
+			.catch((e) => {
+				if (aktif) {
+					setEvents([]);
+					toast.error(
+						`Daftar event gagal dimuat: ${e instanceof Error ? e.message : e}`,
+					);
+				}
+			});
+		return () => {
+			aktif = false;
+		};
+	}, [d.event]);
 
 	function simpan() {
 		start(async () => {
@@ -553,14 +609,34 @@ function UbahDialog({
 				bank_tujuan: bankKe,
 				tanggal_transfer: tanggal || null,
 				bank_account_id: rekening || null,
+				...(eventId && eventId !== d.event?.id ? { event_id: eventId } : {}),
 			});
 			if (!res.ok) return void toast.error(res.error ?? res.warning);
 			toast.success(
 				d.status === "disetujui" &&
-					(nominal !== d.nominal || rekening !== (d.bank_account_id ?? ""))
-					? "Disimpan — nominal/rekening berubah, konfirmasi ulang"
+					(nominal !== d.nominal ||
+						rekening !== (d.bank_account_id ?? "") ||
+						(eventId && eventId !== d.event?.id))
+					? "Disimpan — ada yang berubah, konfirmasi ulang"
 					: "Disimpan",
 			);
+			onClose();
+			router.refresh();
+		});
+	}
+
+	async function bukanEvent() {
+		const ok = await confirm({
+			title: "Bukan pembayaran event?",
+			description:
+				"Bukti ini ditutup dan tidak masuk Billing. Kalau ini uang masuk lain (bukan dari klien acara), catat lewat Catat.",
+			confirmLabel: "Ya, bukan pembayaran event",
+		});
+		if (!ok) return;
+		start(async () => {
+			const res = await tandaiBukanEvent(d.id);
+			if (!res.ok) return void toast.error(res.error ?? res.warning);
+			toast.success("Ditandai bukan pembayaran event");
 			onClose();
 			router.refresh();
 		});
@@ -570,12 +646,33 @@ function UbahDialog({
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Ubah bukti DP</DialogTitle>
+					<DialogTitle>Ubah bukti {jenis}</DialogTitle>
 					<DialogDescription>
 						Isi sesuai mutasi bank, bukan sesuai bacaan foto.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="grid gap-3 sm:grid-cols-2">
+					<div className="space-y-1.5 sm:col-span-2">
+						<Label>Untuk event</Label>
+						<Combobox
+							value={eventId}
+							onValueChange={setEventId}
+							options={events ?? []}
+							allowFreeText={false}
+							placeholder={
+								events ? "Cari nama klien, tanggal, atau PRJ" : "Memuat event…"
+							}
+							disabled={!events}
+							emptyMessage="Event tidak ketemu"
+							aria-label="Untuk event"
+							wrapOptions
+						/>
+						<p className="text-[12px] text-muted-foreground">
+							{eventId
+								? "Sisa tagihan & syarat dihitung ulang dari event ini setelah disimpan."
+								: "Belum tertaut ke event — pilih supaya bisa dikonfirmasi ke tagihannya."}
+						</p>
+					</div>
 					<div className="space-y-1.5">
 						<Label>Nominal masuk</Label>
 						<MoneyInput
@@ -597,8 +694,26 @@ function UbahDialog({
 						<TextField
 							value={nama}
 							onChange={(e) => setNama(e.target.value)}
+							placeholder="Tidak tertera di bukti — isi dari mutasi"
 							aria-label="Nama pengirim"
 						/>
+						{!nama && d.saranPengirim?.length ? (
+							<div className="flex flex-wrap items-center gap-1.5">
+								<span className="text-[12px] text-muted-foreground">
+									Mungkin:
+								</span>
+								{d.saranPengirim.map((n) => (
+									<button
+										key={n}
+										type="button"
+										onClick={() => setNama(n)}
+										className="rounded-full border border-border-default px-2.5 py-0.5 text-[12px] font-medium hover:bg-secondary"
+									>
+										{n}
+									</button>
+								))}
+							</div>
+						) : null}
 					</div>
 					<div className="space-y-1.5">
 						<Label>Bank pengirim</Label>
@@ -627,18 +742,33 @@ function UbahDialog({
 						/>
 					</div>
 				</div>
-				<DialogFooter>
+				<DialogFooter className="sm:justify-between">
 					<Button
-						variant="outline"
-						className="rounded-full"
-						onClick={onClose}
+						variant="ghost"
+						className="rounded-full text-muted-foreground"
+						onClick={bukanEvent}
 						disabled={pending}
 					>
-						Batal
+						Bukan pembayaran event
 					</Button>
-					<Button className="rounded-full" onClick={simpan} disabled={pending}>
-						{pending ? <Loader2 className="animate-spin" /> : <Check />} Simpan
-					</Button>
+					<div className="flex flex-col-reverse gap-2 sm:flex-row">
+						<Button
+							variant="outline"
+							className="rounded-full"
+							onClick={onClose}
+							disabled={pending}
+						>
+							Batal
+						</Button>
+						<Button
+							className="rounded-full"
+							onClick={simpan}
+							disabled={pending}
+						>
+							{pending ? <Loader2 className="animate-spin" /> : <Check />}{" "}
+							Simpan
+						</Button>
+					</div>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

@@ -1519,3 +1519,19 @@ Kartu Telegram + lonceng begitu bukti baru masuk, dengan tombol yang sama.
 2. Halaman rekap owner, kartu **Kesiapan settle**: kalau laporan crew > add-on Tambahan Durasi yang sudah ada di event → baris merah + tombol **Tagihkan N jam**. Tombol memakai inti `revisi_event` (sama dengan Hermes & Edit booking): add-on "Tambahan Durasi 1 Jam" (paket combo: "(3+ crew)", DR-041) ditambah, invoice/nota aktif diperbarui nomor sama, lalu **ditawarkan** ke owner untuk dikirim — tidak pernah terkirim otomatis.
 3. Tambahan jam **sebelum** acara tetap ganti paket (2 → 3 jam), bukan add-on ini.
 4. Event yang sudah di-settle tidak bisa ditagihkan lewat tombol ini (buka settlement dulu), sama dengan `revisi_event`.
+
+---
+
+## DR-062: Uang Masuk mengenali event lewat event_id bot + nomor; jenis pembayaran otomatis
+
+**Status:** Accepted (owner 2026-11-25, lewat sesi hermes-ff: "oke tolong kerjakan perbaikan dan improvementnya")
+**Date:** 2026-11-25
+**Kasus:** Shella Indah (PRJ-20261226-3246) kirim bukti pelunasan Rp2 jt; invoice masih memuat nomor pemesan (Ariyo) → draft tidak ketemu tagihan dan bot membuat kartu Booking Masuk palsu "Bukti DP".
+
+### Decision
+1. `POST /api/bot/pembayaran/draft` menerima `event_id` (uuid) opsional. Valid (tidak dihapus/dibatalkan) → target = event + invoice aktifnya. Tidak valid → diabaikan (bukan 400).
+2. Tidak ada dokumen yang cocok → cari acara mendatang lewat nomor (`cocokNomor`, aturan sama dengan /api/bot/klien). Satu = target. Lebih dari satu, atau ada kartu Booking Masuk baru tanpa event (bisa booking kedua) → **tidak ditebak**, owner memilih.
+3. Jenis pembayaran satu aturan (`jenisBayar`): menutup sisa → Pelunasan; belum ada yang dibayar → DP; selebihnya Cicilan. Dipakai label Uang Masuk/Booking Masuk/Telegram dan payment_type saat masuk buku.
+4. Dialog Ubah: "Untuk event" (cari nama/tanggal/PRJ, tampil sisa) → syarat & sisa dihitung ulang; tombol "Bukan pembayaran event" menutup bukti dengan alasan (tidak masuk Billing).
+5. Nama pengirim kosong ditulis "Tidak tertera di bukti — isi dari mutasi" + saran nama klien/pemesan; owner tetap yang mengisi.
+6. Kartu Booking Masuk dari bot yang nomornya sudah punya acara mendatang ditandai "Klien sudah punya event PRJ…" + Gabungkan (tautkan, bukti ikut ke event, yang disetujui masuk buku) / Batalkan kartu. Tidak ada yang dihapus.
