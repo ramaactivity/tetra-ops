@@ -680,10 +680,27 @@ async function postDraft(
 			.update({ payment_id: res.paymentId })
 			.eq("id", d.id);
 		const posted = { ...res, paymentType, nominal: d.nominal };
+		// Dikonfirmasi owner di app → dokumen langsung ditawarkan di app
+		// (Perlu persetujuan + Telegram), tidak lewat Hermes: Shella 25 Nov,
+		// "Konfirmasi saja" tidak memunculkan apa pun untuk dikirim. Hermes hanya
+		// untuk yang disetujui admin lewat WA.
 		after(() =>
 			(opts.kirimLangsung
 				? kirimTerimaKasih(eventId, posted, actorId)
-				: kabariHermes(d, eventId, posted)
+				: d.disetujui_via === "app"
+					? offerPaymentDocsToOwner(
+							eventId,
+							{
+								docs: posted.docs as Parameters<
+									typeof offerPaymentDocsToOwner
+								>[1]["docs"],
+								lunas: posted.lunas,
+								remaining: posted.sisaSesudah,
+							},
+							posted.paymentType,
+							posted.nominal,
+						)
+					: kabariHermes(d, eventId, posted)
 			).catch((e) => console.error("[payment-drafts] setelah posting:", e)),
 		);
 		return "posted";

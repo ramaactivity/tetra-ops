@@ -334,7 +334,7 @@ function DraftRow({
 				<div className="mt-2 flex flex-wrap gap-1.5 md:col-span-6 md:mt-1">
 					{d.status === "menunggu" ? (
 						<Button
-							size="sm"
+							size="lg"
 							className="rounded-full"
 							disabled={pending}
 							onClick={() => setDialog("konfirmasi")}
@@ -343,7 +343,7 @@ function DraftRow({
 						</Button>
 					) : null}
 					<Button
-						size="sm"
+						size="lg"
 						variant="outline"
 						className="rounded-full"
 						disabled={pending}
@@ -352,7 +352,7 @@ function DraftRow({
 						<Pencil /> Ubah
 					</Button>
 					<Button
-						size="sm"
+						size="lg"
 						variant="outline"
 						className="rounded-full"
 						disabled={pending}
@@ -362,7 +362,7 @@ function DraftRow({
 						bukti
 					</Button>
 					<Button
-						size="sm"
+						size="lg"
 						variant="ghost"
 						className="rounded-full"
 						disabled={pending}
@@ -435,7 +435,7 @@ function KonfirmasiDialog({
 				res.tercatat
 					? kirim
 						? `Masuk buku — ${dokumen} + ucapan terima kasih sedang dikirim ke klien`
-						: `Masuk buku — ${dokumen} sudah terbit (belum dikirim)`
+						: `Masuk buku — ${dokumen} terbit, tinggal disetujui kirim di Dokumen › Perlu persetujuan`
 					: hasEvent
 						? "Pembayaran disetujui"
 						: "Disetujui — masuk buku saat event dibuat",
@@ -447,15 +447,15 @@ function KonfirmasiDialog({
 
 	return (
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
-			<DialogContent>
+			<DialogContent className="gap-5 p-6 sm:max-w-xl">
 				<DialogHeader>
-					<DialogTitle>
+					<DialogTitle className="text-[19px] font-semibold">
 						Konfirmasi {d.jenis ?? "pembayaran"}{" "}
 						<span data-nominal className="tabular">
 							{rp(d.nominal)}
 						</span>
 					</DialogTitle>
-					<DialogDescription>
+					<DialogDescription className="text-[14px] leading-relaxed">
 						Dari rek. a.n. <b>{d.nama_pengirim ?? "—"}</b> · {d.tanggalLabel}
 						{d.klien ? ` · untuk ${d.klien.nama}` : ""}. Cocokkan dengan mutasi
 						bank dulu.
@@ -488,6 +488,7 @@ function KonfirmasiDialog({
 				<DialogFooter>
 					{hasEvent ? null : (
 						<Button
+							size="lg"
 							variant="outline"
 							className="rounded-full"
 							onClick={onClose}
@@ -499,6 +500,7 @@ function KonfirmasiDialog({
 					{hasEvent ? (
 						<>
 							<Button
+								size="lg"
 								variant="outline"
 								className="rounded-full"
 								onClick={() => submit(false)}
@@ -510,6 +512,7 @@ function KonfirmasiDialog({
 								Konfirmasi saja
 							</Button>
 							<Button
+								size="lg"
 								className="rounded-full"
 								onClick={() => submit(true)}
 								disabled={pending || !bank || !d.nominal}
@@ -524,6 +527,7 @@ function KonfirmasiDialog({
 						</>
 					) : (
 						<Button
+							size="lg"
 							className="rounded-full"
 							onClick={() => submit(false)}
 							disabled={pending || !bank || !d.nominal}
@@ -644,10 +648,12 @@ function UbahDialog({
 
 	return (
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
-			<DialogContent>
+			<DialogContent className="max-h-[92vh] gap-5 overflow-y-auto p-6 sm:max-w-2xl">
 				<DialogHeader>
-					<DialogTitle>Ubah bukti {jenis}</DialogTitle>
-					<DialogDescription>
+					<DialogTitle className="text-[19px] font-semibold">
+						Ubah bukti {jenis}
+					</DialogTitle>
+					<DialogDescription className="text-[14px] leading-relaxed">
 						Isi sesuai mutasi bank, bukan sesuai bacaan foto.
 					</DialogDescription>
 				</DialogHeader>
@@ -744,6 +750,7 @@ function UbahDialog({
 				</div>
 				<DialogFooter className="sm:justify-between">
 					<Button
+						size="lg"
 						variant="ghost"
 						className="rounded-full text-muted-foreground"
 						onClick={bukanEvent}
@@ -753,6 +760,7 @@ function UbahDialog({
 					</Button>
 					<div className="flex flex-col-reverse gap-2 sm:flex-row">
 						<Button
+							size="lg"
 							variant="outline"
 							className="rounded-full"
 							onClick={onClose}
@@ -761,6 +769,7 @@ function UbahDialog({
 							Batal
 						</Button>
 						<Button
+							size="lg"
 							className="rounded-full"
 							onClick={simpan}
 							disabled={pending}

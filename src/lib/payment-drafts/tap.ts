@@ -85,7 +85,7 @@ export async function handleDraftTap(
 			? `✅ ${rp(d.nominal)} disetujui — masuk buku saat event dibuat.`
 			: kirim
 				? `✅ ${rp(d.nominal)} masuk buku. Kuitansi + ucapan terima kasih sedang dikirim ke klien.`
-				: `✅ ${rp(d.nominal)} masuk buku. Kuitansi terbit (belum dikirim).`,
+				: `✅ ${rp(d.nominal)} masuk buku. Kartu "Kirim ke klien" untuk dokumennya menyusul di sini.`,
 		clear: true,
 	};
 }
