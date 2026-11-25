@@ -388,6 +388,8 @@ export type BotDraftResponse = {
 				status: DraftRow["status"];
 				url: string;
 				gerbang: string[];
+				/** Foto bukti sudah ada di R2 — bot menghapus salinan lokalnya hanya kalau true (25 Nov, Shella). */
+				bukti_tersimpan: boolean;
 		  }
 		| { ok: false; error: string; issues?: unknown };
 };
@@ -455,6 +457,7 @@ export async function handleBotDraft(
 			status: r.status,
 			url: draftUrl(appUrl, r),
 			gerbang: r.gerbang ?? [],
+			bukti_tersimpan: Boolean(r.bukti_file_id),
 		},
 	});
 	// Bukti: unggah sekali (R2, DR-065). Gagal unggah ≠ gagal simpan — bot
