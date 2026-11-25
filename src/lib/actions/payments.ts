@@ -176,6 +176,39 @@ export async function setPayerName(
 	}
 }
 
+/**
+ * Lampirkan bukti transfer ke pembayaran yang sudah tercatat TANPA foto
+ * (25 Nov: Drive penuh → foto bukti pelunasan Shella tidak tersimpan, dan tidak
+ * ada jalan melampirkannya belakangan). Hanya mengisi yang kosong — bukti yang
+ * sudah ada tidak bisa ditimpa dari sini.
+ */
+export async function attachPaymentProof(
+	projectId: string,
+	paymentId: string,
+	url: string,
+): Promise<{ error?: string }> {
+	try {
+		await requireOwnerLevel();
+		const link = url.trim();
+		if (link.length > 500 || !/^https?:\/\//.test(link) || !URL.canParse(link))
+			return { error: "Link bukti tidak valid." };
+		const supabase = await createClient();
+		const { data, error } = await supabase
+			.from("payments")
+			.update({ proof_url: link })
+			.eq("id", paymentId)
+			.is("proof_url", null)
+			.select("id")
+			.maybeSingle();
+		if (error) return { error: error.message };
+		if (!data) return { error: "Pembayaran ini sudah punya bukti." };
+		revalidatePath(`/operations/${projectId}/payments`);
+		return {};
+	} catch (err) {
+		return { error: err instanceof Error ? err.message : "Gagal menyimpan" };
+	}
+}
+
 export async function reversePayment(
 	projectId: string,
 	id: string,

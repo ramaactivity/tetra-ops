@@ -10,7 +10,7 @@ import {
 import { useImperativeHandle, useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
 
-const ACCEPT =
+export const PROOF_ACCEPT =
 	"image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,application/pdf";
 
 /**
@@ -210,7 +210,7 @@ export function ProofUploadButton({
 			<input
 				ref={fileRef}
 				type="file"
-				accept={ACCEPT}
+				accept={PROOF_ACCEPT}
 				className="hidden"
 				onChange={(e) => {
 					const f = e.target.files?.[0];

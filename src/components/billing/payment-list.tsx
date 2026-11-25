@@ -4,10 +4,15 @@ import {
 	BookOpen,
 	ExternalLink,
 	Loader2,
+	Paperclip,
 	Pencil,
 	RotateCcw,
 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import {
+	PROOF_ACCEPT,
+	uploadProofToDrive,
+} from "@/components/billing/proof-upload-button";
 import { ReceiptButton } from "@/components/documents/receipt-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,7 +28,11 @@ import { TextareaField } from "@/components/ui/form-fields";
 import { Input } from "@/components/ui/input";
 import { MoneyAmount } from "@/components/ui/money-amount";
 import { toast } from "@/components/ui/toaster";
-import { reversePayment, setPayerName } from "@/lib/actions/payments";
+import {
+	attachPaymentProof,
+	reversePayment,
+	setPayerName,
+} from "@/lib/actions/payments";
 import { formatDateID, formatRupiah } from "@/lib/format";
 
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
@@ -96,6 +105,27 @@ function PaymentItem({
 	const [reason, setReason] = useState("");
 	const [payerOpen, setPayerOpen] = useState(false);
 	const [payer, setPayer] = useState(payment.payer_name ?? "");
+	const proofRef = useRef<HTMLInputElement | null>(null);
+	const [uploading, setUploading] = useState(false);
+
+	async function attachProof(file: File) {
+		setUploading(true);
+		try {
+			const { url } = await uploadProofToDrive(projectId, file, {
+				paymentType: payment.payment_type,
+				paymentDate: payment.payment_date,
+				amount: payment.amount,
+			});
+			const result = await attachPaymentProof(projectId, payment.id, url);
+			if (result.error) toast.error(result.error);
+			else toast.success("Bukti transfer terlampir");
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : "Upload gagal");
+		} finally {
+			setUploading(false);
+			if (proofRef.current) proofRef.current.value = "";
+		}
+	}
 
 	function savePayer() {
 		startTransition(async () => {
@@ -261,6 +291,31 @@ function PaymentItem({
 							</a>
 						}
 					/>
+				)}
+				{!payment.proof_url && !payment.is_reversed && (
+					<>
+						<input
+							ref={proofRef}
+							type="file"
+							accept={PROOF_ACCEPT}
+							className="hidden"
+							onChange={(e) => {
+								const f = e.target.files?.[0];
+								if (f) void attachProof(f);
+							}}
+						/>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => proofRef.current?.click()}
+							disabled={uploading}
+							title="Foto bukti transfer belum ada — lampirkan dari galeri"
+							className="mr-1 rounded-full"
+						>
+							{uploading ? <Loader2 className="animate-spin" /> : <Paperclip />}
+							Lampirkan bukti
+						</Button>
+					</>
 				)}
 				{!payment.is_reversed && (
 					<Button
