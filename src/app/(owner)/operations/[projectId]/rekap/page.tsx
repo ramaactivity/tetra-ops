@@ -165,10 +165,14 @@ type AssignmentJoin = {
 
 export default async function EventRekapPage({
 	params,
+	searchParams,
 }: {
 	params: Promise<{ projectId: string }>;
+	searchParams: Promise<{ koreksi?: string }>;
 }) {
 	const { projectId } = await params;
+	// "Ubah / bukti" dari kartu hutang-piutang owner → Koreksi rekap terbuka.
+	const bukaKoreksi = (await searchParams).koreksi === "1";
 
 	const me = await getCurrentUser();
 	if (!me) redirect("/login");
@@ -1022,19 +1026,23 @@ export default async function EventRekapPage({
 
 			{/* === Edit recap (owner override) — only if not locked === */}
 			{rekap && !recapLocked && (
-				<CollapsibleCard
-					icon={<Pencil className="size-4" aria-hidden strokeWidth={2} />}
-					title="Koreksi rekap"
-					subtitle="Ubah angka yang diisi crew kalau ada yang salah."
-				>
-					<RekapForm
-						eventId={event.id}
-						projectId={projectId}
-						defaults={defaults}
-						mode="update"
-						context={context}
-					/>
-				</CollapsibleCard>
+				<div id="koreksi" className="scroll-mt-24">
+					<CollapsibleCard
+						icon={<Pencil className="size-4" aria-hidden strokeWidth={2} />}
+						title="Koreksi rekap"
+						subtitle="Ubah angka, pembayar, atau bukti/nota yang diisi crew kalau ada yang salah."
+						defaultOpen={bukaKoreksi}
+						key={bukaKoreksi ? "buka" : "tutup"}
+					>
+						<RekapForm
+							eventId={event.id}
+							projectId={projectId}
+							defaults={defaults}
+							mode="update"
+							context={context}
+						/>
+					</CollapsibleCard>
+				</div>
 			)}
 
 			{/* === Tabs view (display) === */}

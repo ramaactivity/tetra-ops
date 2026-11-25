@@ -178,7 +178,7 @@ function Row({
 										// Biaya acara yang dibayar owner berasal dari rekap: nominal,
 										// pembayar, dan bukti transfernya diubah di Koreksi rekap.
 										<Link
-											href={`/operations/${it.projectId}/rekap`}
+											href={`/operations/${it.projectId}/rekap?koreksi=1#koreksi`}
 											className="ml-1.5 font-medium text-foreground underline underline-offset-2"
 										>
 											Ubah / bukti
