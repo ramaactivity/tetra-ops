@@ -1550,3 +1550,17 @@ Kartu Telegram + lonceng begitu bukti baru masuk, dengan tombol yang sama.
 2. Tujuan WA dokumen pembayaran dari bukti transfer = **nomor pengirim bukti** (`doc_send_requests.nomor`), bukan `documents.client.phone`.
 3. Satu penentu penerima (`src/lib/documents/penerima.ts`) untuk dialog kirim di app, kartu Perlu persetujuan, kartu Telegram, dan pratinjau `kirim_dokumen`: tampil "Dikirim ke: nama · nomor (peran)"; bukan nomor klien di event (kecuali WO pada event lewat vendor) → peringatan. Dialog kirim menawarkan pilihan WO/EO, pemesan, klien, PIC, pengirim bukti, nomor lain.
 4. Nomor di dokumen ≠ nomor klien event → tombol "Samakan nomor dokumen" (owner yang menekan; dokumen aktif event itu yang masih memuat nomor lama ikut diganti).
+
+---
+
+## DR-064: Kontak belum terdaftar — usulan bot, keputusan owner di Ops
+
+**Status:** Accepted (owner 2026-11-25, lewat hermes-ff: "lanjut. tapi usulannya harus muncul di ops juga ya. jangan lewat whatsapp")
+**Date:** 2026-11-25
+**Kasus:** klien chat dari nomor yang tidak ada di event (Shella: event memuat nomor pemesan) → bot tidak mengenali acaranya.
+
+### Decision
+1. `POST /api/bot/kontak-usulan` (bot auth) `{ nomor, wa_jid, nama_kontak, nama_wa, alasan: nama_kontak_cocok|mengaku_booking, cuplikan }` → `{ ok, usulan_id|null, kandidat }` (+ `sudah_terdaftar`, `ditutup`, `tim`). Tabel `kontak_usulan`, satu baris per nomor (9 digit akhir; tanpa nomor → wa_jid).
+2. Tidak dibuat untuk: nomor tim (users.phone_wa), nomor yang sudah cocok acara mendatang/≤3 hari lalu (cocokNomor), "nama kontak cocok" tanpa kandidat acara. "Mengaku booking" selalu dibuat. "Bukan klien" tidak diusulkan lagi.
+3. Kandidat = nama kontak/nama WA cocok dengan nama klien/judul, pemesan, WO, PIC (beda satu huruf masih cocok); tanggal di nama kontak hanya menambah skor (tanggal acara bisa sudah pindah).
+4. Ops: kartu "Kontak belum terdaftar" di atas Booking Masuk + lonceng. Tombol: Nomor klien (events.client_wa; nomor lain yang sudah ada diganti hanya setelah konfirmasi) · PIC cadangan (extra_pics) · Event lain/Pilih event · Bukan klien. Tanpa pesan WA. "Pemesan" ditunda.

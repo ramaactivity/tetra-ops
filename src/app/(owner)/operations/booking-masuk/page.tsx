@@ -7,6 +7,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { InboxStatusBadge } from "@/components/booking-inbox/inbox-status-badge";
+import {
+	KontakUsulanPanel,
+	type KontakUsulanView,
+} from "@/components/booking-inbox/kontak-usulan-panel";
 import { Container } from "@/components/layout/container";
 import { DpDraftsSection } from "@/components/payment-drafts/dp-drafts-section";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -17,6 +21,7 @@ import {
 	missingFields,
 } from "@/lib/booking-inbox/core";
 import { formatDateID } from "@/lib/format";
+import type { KontakUsulanRow } from "@/lib/kontak-usulan/server";
 import type { DraftRow } from "@/lib/payment-drafts/core";
 import {
 	type EventByPhone,
@@ -88,6 +93,33 @@ export default async function BookingMasukPage({
 	const eventLain = (it: InboxRow) =>
 		terbuka.includes(it) ? (eventOf.get(phoneTail(it.client_wa)) ?? []) : [];
 
+	// Kontak belum terdaftar (DR-064): usulan bot yang masih terbuka.
+	const { data: usulanRows, error: usulanErr } = await supabase
+		.from("kontak_usulan")
+		.select("*")
+		.eq("status", "terbuka")
+		.order("updated_at", { ascending: false })
+		.limit(30);
+	if (usulanErr)
+		console.error("[booking-masuk] kontak usulan:", usulanErr.message);
+	const usulan: KontakUsulanView[] = (
+		(usulanRows ?? []) as KontakUsulanRow[]
+	).map((u) => ({
+		id: u.id,
+		judul: u.nama_kontak ?? u.nama_wa ?? "Kontak WA",
+		nomor: u.nomor,
+		namaWa: u.nama_kontak ? u.nama_wa : null,
+		mengakuBooking: u.alasan === "mengaku_booking",
+		cuplikan: u.cuplikan,
+		tanggal: formatDateID(u.updated_at),
+		kandidat: (u.kandidat ?? []).map((k) => ({
+			eventId: k.event_id,
+			projectId: k.project_id,
+			label: `${k.client_name ?? k.project_id} · ${formatDateID(k.event_date)} · ${k.project_id}`,
+			alasan: k.alasan.join(" · "),
+		})),
+	}));
+
 	return (
 		<Container size="lg" className="space-y-3 pb-6">
 			<div>
@@ -99,6 +131,14 @@ export default async function BookingMasukPage({
 					event-nya — form booking sudah terisi.
 				</p>
 			</div>
+
+			{usulanErr ? (
+				<p className="rounded-xl bg-rose-50 px-4 py-3 text-[13px] text-rose-800">
+					Kontak belum terdaftar gagal dimuat: {usulanErr.message}
+				</p>
+			) : (
+				<KontakUsulanPanel rows={usulan} />
+			)}
 
 			<form method="get" className="max-w-md">
 				<FilterSearchInput
