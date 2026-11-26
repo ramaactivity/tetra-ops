@@ -1396,3 +1396,36 @@ Satu jalur dengan tombol **Simpan perubahan** di Edit booking: keduanya memanggi
 **Efek simpan:** event, add-on, invoice & nota lunas aktif (nomor sama, `syncDocNumbersFromEvent`), notif perubahan ke grup Telegram owner, sinyal Booth — persis Edit booking. **Tidak pernah mengirim ke klien**; invoice revisi terkirim hanya setelah owner tap "Kirim ke klien" / menyetujui di app. Label "(revisi)" hanya muncul kalau invoice pernah tercatat terkirim (`delivered_at`).
 
 **Error** (`{"error": "…"}`, aman diulang): tak ada perubahan (mis. revisi sudah tersimpan), durasi tak ada di pricelist (disertai daftar durasi), add-on tidak ditemukan/ambigu (disertai pilihan), validasi form Edit booking.
+
+## 24. Mesin cetak dokumen untuk lini bisnis lain — `POST /api/render/document` (DR-067)
+
+Dashboard Tetra Visual (atau lini bisnis lain) mengirim isi dokumen, Tetra Ops mengembalikan PDF dengan template yang sama dengan dokumen Tetra Photobooth. **Stateless**: Tetra Ops tidak menyimpan dokumen, nomor, atau pembayaran, dan tidak mencatat apa pun ke buku. Penomoran, data klien, jadwal, dan pembukuan milik pemanggil.
+
+- Auth: `Authorization: Bearer <DOC_RENDER_API_TOKEN>` (env Tetra Ops; di produksi tanpa env = selalu 401).
+- Body JSON (validasi `src/lib/documents/render-api.ts`):
+
+```json
+{
+  "brand": "tetra_visual",                      // "tetra_visual" | "tetra_photobooth"
+  "doc_type": "invoice",                        // "quotation" | "invoice" | "receipt"
+  "doc_number": "INV-TV-01-26112026",
+  "issued_at": "2026-11-26",
+  "due_date": "2026-11-26",                     // opsional (invoice)
+  "valid_until": "2026-12-10",                  // opsional (quotation)
+  "client": { "name": "Panorama JTB", "attn": null, "phone": "081585246032", "email": null, "address": null },
+  "event": { "title": "Panorama JTB", "date": "2026-11-26", "time": "17.00 – selesai", "venue": null, "city": null },
+  "items": [{ "name": "Dokumentasi Foto & Video", "includes": ["1 Fotografer", "1 Videografer"], "qty": 1, "unit_price": 2000000 }],
+  "discount": 0,
+  "gross_up": { "enabled": false, "rate_pct": 0 },
+  "notes": null,
+  "terms": ["Pembayaran penuh sebelum acara dimulai."],   // tercetak PERSIS ini; kosong = tanpa ketentuan
+  "payments": [{ "date": "2026-11-20", "amount": 500000, "type": "dp", "bank": "BCA", "ref": null }],
+  "receipt": { "date": "2026-11-26", "amount": 2000000, "type": "pelunasan", "bank": "BCA", "sender": null, "paid_through": 2000000 },
+  "signer": null,                                // null = penanda tangan bawaan (beserta tanda tangannya)
+  "bank": null                                   // null = rekening penerima bawaan Tetra Ops
+}
+```
+
+- `receipt` wajib untuk `doc_type: "receipt"`. `payments` = pembayaran yang sudah masuk (invoice menampilkan sisa tagihan).
+- Respons sukses: `200 application/pdf` (`Content-Disposition: attachment; filename="Invoice_Tetra Visual_<acara>_<tanggal>.pdf"`). Gagal: `400 {ok:false,error,issues}` · `401 {ok:false,error:"unauthorized"}` · `500 {ok:false,error:"gagal render"}`.
+- Merek tersedia: `src/lib/documents/brand.ts` (kontak Tetra Visual mengikuti `tetra-visual/src/data/site.ts`).

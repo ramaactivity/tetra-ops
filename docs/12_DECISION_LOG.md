@@ -1592,3 +1592,16 @@ Kartu Telegram + lonceng begitu bukti baru masuk, dengan tombol yang sama.
 2. Pindah ke R2: semua unggahan per event (`/api/drive/upload/[projectId]` — foto bukti rekap, nota lapangan, bukti transport/uang jalan, bukti fee crew [tim]; bukti bayar klien, komisi, transaksi event [owner]), Arsip Nota + semua yang memakai `/api/drive/upload/manual` (Catat, talangan, penarikan, lampiran jurnal, nota pembelian) [owner], foto alat [tim], arsip desain ACC klien [tim], arsip bukti bayar portal [owner].
 3. Tetap di Drive: folder event Hasil Cetak/Footage/Softfile (besar, link galeri tamu), ekspor cutoff (sekali jalan). File lama di Drive tetap terbaca; tidak ada yang dihapus.
 4. Biaya acara yang dibayar owner (antrean hutang-piutang "belum settle") di halaman event diberi tautan "Ubah / bukti" ke rekap — nominal, pembayar, dan bukti transfernya dikoreksi di Koreksi rekap (owner 25 Nov, Sa'adah: Adit bayar sewa mobil langsung).
+
+---
+
+## DR-067: Tetra Visual memakai "mesin cetak" dokumen Tetra Ops lewat API — datanya tetap di dashboard Tetra Visual
+
+**Status:** Accepted (owner 2026-11-26: "apakah di konekan pake mcp / api saja ya jadi minjem mesinnya doang … dikelolanya di dashboard tetra visual" → "setuju lanjutkan")
+**Date:** 2026-11-26
+
+### Decision
+1. Tetra Visual = lini bisnis terpisah: dokumen, nomor, jadwal event, dan pembukuannya TIDAK masuk Tetra Ops (tidak tercampur buku, laporan untung, atau jadwal crew booth).
+2. Tetra Ops menyediakan `POST /api/render/document` (Bearer `DOC_RENDER_API_TOKEN`): body isi dokumen + merek → PDF dengan template yang sama. Stateless — tidak menyimpan apa pun. Ketentuan tercetak persis kiriman pemanggil.
+3. Template PDF menerima merek lewat prop (`brand`) — bawaan Tetra Photobooth, jadi semua dokumen Tetra Ops tidak berubah. Merek di `src/lib/documents/brand.ts`; logo Tetra Visual diturunkan dari logo resmi website (diwarnai hitam/cream, bentuk sama).
+4. Dashboard Tetra Visual (repo tetra-visual) membangun sendiri: penyimpanan data, halaman Dokumen (QUO-TV/INV-TV/KWT-TV), daftar paket & harga, jadwal event, pencatatan pembayaran — memanggil API ini untuk PDF.

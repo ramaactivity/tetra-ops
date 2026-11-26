@@ -11,6 +11,7 @@ import {
 	hasBreak,
 	parseSegments,
 } from "@/lib/schedule/segments";
+import type { BrandKey } from "./brand";
 import { computeTotals, type DocTotals } from "./totals";
 import type {
 	DocClient,
@@ -30,6 +31,8 @@ export type PdfPaymentLine = {
 };
 
 export type PdfDocData = {
+	/** Merek kop & teks (DR-067). Kosong = Tetra Photobooth. */
+	brand?: BrandKey;
 	docType: DocType;
 	docNumber: string;
 	/** Nomor invoice event — "Referensi" di kwitansi, nota lunas & BAST. */

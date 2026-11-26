@@ -11,13 +11,9 @@
  */
 
 import { Document, Page, Text, View } from "@react-pdf/renderer";
+import { BRANDS } from "@/lib/documents/brand";
 import type { PdfDocData } from "@/lib/documents/pdf-data";
-import {
-	COMPANY,
-	DOC_TITLE,
-	type DocType,
-	splitIncludes,
-} from "@/lib/documents/types";
+import { DOC_TITLE, type DocType, splitIncludes } from "@/lib/documents/types";
 import { formatPhoneLocal } from "@/lib/format";
 import { terbilangRupiah } from "@/lib/terbilang";
 import {
@@ -452,6 +448,7 @@ function Shell({
 		<Page size="A4" style={S.page}>
 			<View style={S.content}>
 				<PdfHeader
+					brand={BRANDS[d.brand ?? "tetra_photobooth"]}
 					title={SWISS_TITLE[d.docType]}
 					variant={variant}
 					compact={compact}
@@ -549,6 +546,7 @@ function BillingPage({
 	);
 	const bottom = (
 		<PdfBottom
+			brand={BRANDS[d.brand ?? "tetra_photobooth"]}
 			bank={d.bank}
 			terms={termLines(d)}
 			signer={d.signer}
@@ -633,6 +631,7 @@ function ReceiptPage({
 			variant={variant}
 			bottom={
 				<PdfBottom
+					brand={BRANDS[d.brand ?? "tetra_photobooth"]}
 					bank={d.bank}
 					terms={termLines(d)}
 					signer={d.signer}
@@ -689,6 +688,7 @@ function BastPage({
 	variant: HeaderVariant;
 	flow: boolean;
 }) {
+	const COMPANY = BRANDS[d.brand ?? "tetra_photobooth"];
 	const b = d.bast;
 	const picName = b?.picName ?? d.client.name;
 	// Jam sesi saja ("16.30–19.30"), tanpa "Setup …" — gaya referensi.
@@ -742,6 +742,7 @@ function BastPage({
 							<Col span={2} />
 							<Col span={2}>
 								<PdfSignature
+									brand={BRANDS[d.brand ?? "tetra_photobooth"]}
 									signer={d.signer}
 									label="Pihak Pertama, penyedia"
 									rule
@@ -817,8 +818,10 @@ export function TetraDocument({
 	compact?: boolean;
 }) {
 	const title = `${DOC_TITLE[data.docType]} ${data.docNumber} — ${data.client.name}`;
+	// DR-067: merek dari data (API render Tetra Visual); bawaan Tetra Photobooth.
+	const brand = BRANDS[data.brand ?? "tetra_photobooth"];
 	return (
-		<Document title={title} author={COMPANY.name} creator="Tetra Ops">
+		<Document title={title} author={brand.name} creator="Tetra Ops">
 			{data.docType === "receipt" ? (
 				<ReceiptPage d={data} variant={variant} flow={flow} />
 			) : data.docType === "bast" ? (

@@ -14,11 +14,7 @@
 
 import { Font, Image, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { ComponentProps, ReactNode } from "react";
-import {
-	LOGO_BLACK_DATA_URL,
-	LOGO_CREAM_DATA_URL,
-} from "@/lib/documents/logo-swiss-data";
-import { COMPANY } from "@/lib/documents/types";
+import { BRANDS, type PdfBrand } from "@/lib/documents/brand";
 
 // Jangan pisahkan kata dengan tanda hubung ("kesepa-katan").
 Font.registerHyphenationCallback((word) => [word]);
@@ -210,25 +206,36 @@ export type HeaderVariant = "a" | "b" | "c";
 
 const HEADER_THEME: Record<
 	HeaderVariant,
-	{ bg: string | null; fg: string; dot: string; logo: string }
+	{ bg: string | null; fg: string; dot: string; logo: "black" | "cream" }
 > = {
-	a: { bg: null, fg: C.ink, dot: C.red, logo: LOGO_BLACK_DATA_URL },
-	b: { bg: C.ink, fg: C.paper, dot: C.redOnBlack, logo: LOGO_CREAM_DATA_URL },
-	c: { bg: C.red, fg: C.paper, dot: C.ink, logo: LOGO_CREAM_DATA_URL },
+	a: { bg: null, fg: C.ink, dot: C.red, logo: "black" },
+	b: { bg: C.ink, fg: C.paper, dot: C.redOnBlack, logo: "cream" },
+	c: { bg: C.red, fg: C.paper, dot: C.ink, logo: "cream" },
 };
+
+/**
+ * Merek di PDF (DR-067): prop `brand` di kop, tanda tangan, dan blok bawah.
+ * Bawaan Tetra Photobooth — semua dokumen Tetra Ops tetap sama; API render
+ * mesin cetak mengisi Tetra Visual. (Bukan React context: modul ini dirender
+ * di server, dan Next melarang createContext di sana.)
+ */
+const DEFAULT_BRAND = BRANDS.tetra_photobooth;
 
 /** Letterhead (garis 4.5pt + logo + kontak) lalu judul raksasa bertitik. */
 export function PdfHeader({
 	title,
 	variant = "a",
 	compact = false,
+	brand: COMPANY = DEFAULT_BRAND,
 }: {
 	title: string;
+	brand?: PdfBrand;
 	variant?: HeaderVariant;
 	/** Versi ringkas untuk memuatkan dokumen di satu halaman (pdf-render). */
 	compact?: boolean;
 }) {
 	const t = HEADER_THEME[variant];
+	const logo = t.logo === "black" ? COMPANY.logoBlack : COMPANY.logoCream;
 	const titleSize = compact ? 56 : FS.title;
 	const bleed = t.bg
 		? {
@@ -256,7 +263,7 @@ export function PdfHeader({
 			>
 				<Col span={2}>
 					{/* Proporsi aset 944×430 → tinggi 28.5pt */}
-					<Image src={t.logo} style={{ height: 28.5, width: 62.6 }} />
+					<Image src={logo} style={{ height: 28.5, width: 62.6 }} />
 				</Col>
 				<Col span={2}>
 					<Text>{COMPANY.name}</Text>
@@ -425,8 +432,10 @@ export function PdfSignature({
 	signer,
 	label = "Hormat kami",
 	rule = false,
+	brand: COMPANY = DEFAULT_BRAND,
 }: {
 	signer: PdfSigner;
+	brand?: PdfBrand;
 	label?: string;
 	/** BAST: garis di atas nama selebar kolom. */
 	rule?: boolean;
@@ -513,7 +522,9 @@ export function PdfBottom({
 	signLabel,
 	flow,
 	compact = false,
+	brand: COMPANY = DEFAULT_BRAND,
 }: {
+	brand?: PdfBrand;
 	flow?: boolean;
 	/** Versi ringkas: ketentuan lebih rapat supaya muat satu halaman. */
 	compact?: boolean;
@@ -579,7 +590,7 @@ export function PdfBottom({
 					) : null}
 				</Col>
 				<Col span={1}>
-					<PdfSignature signer={signer} label={signLabel} />
+					<PdfSignature signer={signer} label={signLabel} brand={COMPANY} />
 				</Col>
 			</Row>
 		</PinnedBottom>

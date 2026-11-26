@@ -496,6 +496,8 @@ export function docFilename(
 		clientName?: string | null;
 		/** Tanggal terbit YYYY-MM-DD. */
 		issuedAt?: string | null;
+		/** Nama merek di nama file (DR-067). Kosong = Tetra Photobooth. */
+		company?: string | null;
 	},
 ): string {
 	// Buang karakter terlarang di nama file Mac/Windows/WA (dan "_" pemisah);
@@ -510,7 +512,7 @@ export function docFilename(
 	const date = m
 		? `${Number(m[3])} ${ID_MONTH_NAMES[Number(m[2]) - 1]} ${m[1]}`
 		: null;
-	return `${[DOC_TYPE_LABEL[docType], COMPANY.name, subject, date].filter(Boolean).join("_")}.pdf`;
+	return `${[DOC_TYPE_LABEL[docType], p.company || COMPANY.name, subject, date].filter(Boolean).join("_")}.pdf`;
 }
 
 /**
