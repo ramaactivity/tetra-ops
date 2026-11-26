@@ -160,7 +160,16 @@ export type CreateQuotationResult =
 export async function createQuotationCore(
 	supabase: SupabaseClient,
 	input: unknown,
-	opts: { actorId: string | null; today: string; externalId?: string | null },
+	opts: {
+		actorId: string | null;
+		today: string;
+		externalId?: string | null;
+		/**
+		 * Diskon (Rp) yang SUDAH diputuskan owner — masuk total. Agent tidak
+		 * pernah mengisi ini (agent hanya boleh usulan_diskon, di luar total).
+		 */
+		discount?: number;
+	},
 ): Promise<CreateQuotationResult> {
 	// Idempoten untuk bot: external_id yang sama → draft yang sama.
 	if (opts.externalId) {
@@ -191,7 +200,16 @@ export async function createQuotationCore(
 
 	const r = await plan(supabase, input, opts.today);
 	if (!r.ok) return { error: r.error };
-	const p = r.plan;
+	const discount = Math.max(0, Math.round(opts.discount ?? 0));
+	const p = discount
+		? {
+				...r.plan,
+				total: computeTotals(r.plan.items, discount, {
+					enabled: r.plan.gross_up_enabled,
+					ratePct: r.plan.gross_up_rate,
+				}).total,
+			}
+		: r.plan;
 	const signer = await defaultSignerId(supabase);
 	let docNumber: string;
 	try {
@@ -208,7 +226,7 @@ export async function createQuotationCore(
 			client: p.client,
 			event_info: p.event_info,
 			items: p.items,
-			discount: 0,
+			discount,
 			gross_up_enabled: p.gross_up_enabled,
 			gross_up_rate: p.gross_up_rate,
 			notes: p.notes,
