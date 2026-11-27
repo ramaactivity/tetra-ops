@@ -3,7 +3,11 @@ import { loadDataKlien } from "@/lib/booking-inbox/client-docs";
 import { isAuthorizedBot } from "@/lib/bot-auth";
 import { cocokNomor } from "@/lib/events/penerima";
 import { listMissingFields } from "@/lib/events/tbc";
-import { type EventTagihan, tagihanEvent } from "@/lib/finance/tagihan";
+import {
+	type EventTagihan,
+	rincianInvoice,
+	tagihanEvent,
+} from "@/lib/finance/tagihan";
 import { phoneTail } from "@/lib/portal/vendor-signup-core";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -93,40 +97,65 @@ export async function POST(req: NextRequest) {
 		.order("event_date");
 	if (error)
 		return NextResponse.json({ ok: false, error: "gagal" }, { status: 500 });
-	const booking = (data ?? [])
+	const cocok = (data ?? [])
 		.map((e) => ({
 			...e,
 			cocok: eventId
 				? null
 				: cocokNomor(e as Parameters<typeof cocokNomor>[0], tail),
 		}))
-		.filter((e) => (eventId ? e.id === eventId : e.cocok !== null))
-		.map((e) => {
-			const pkg = (Array.isArray(e.package) ? e.package[0] : e.package) as {
-				name?: string;
-				frame_size?: string | null;
-				category?: string | null;
-			} | null;
-			return {
-				event_id: e.id,
-				// Nomor cocok sebagai apa (audit Hermes t_288da914): vendor | client_wa | pic_wa | pemesan | extra_pic.
-				matched_by: e.cocok,
-				tanggal: e.event_date,
-				jam_mulai: e.start_time?.slice(0, 5) ?? null,
-				jam_selesai: e.end_time?.slice(0, 5) ?? null,
-				paket: pkg?.name ?? null,
-				venue: [e.venue_name, e.venue_city].filter(Boolean).join(", ") || null,
-				nama_acara: e.client_name,
-				status_bayar: STATUS_BAYAR[e.payment_status] ?? "dp",
-				lewat_vendor: e.channel === "vendor",
-				tagihan:
-					e.channel === "vendor" || e.cocok === "vendor" ? null : tagihanBot(e),
-				kurang: listMissingFields({
-					...e,
-					package_frame_size: pkg?.frame_size ?? null,
-					package_category: pkg?.category ?? null,
-				}),
-			};
-		});
+		.filter((e) => (eventId ? e.id === eventId : e.cocok !== null));
+	// Invoice terakhir (bukan void) per acara → `rincian` (DR-068).
+	const invoice = new Map<string, Parameters<typeof rincianInvoice>[0]>();
+	if (cocok.length) {
+		const { data: docs } = await createAdminClient()
+			.from("documents")
+			.select("event_id, doc_number, issued_at, discount, items")
+			.in(
+				"event_id",
+				cocok.map((e) => e.id),
+			)
+			.eq("doc_type", "invoice")
+			.neq("status", "void")
+			.order("issued_at", { ascending: false })
+			.order("created_at", { ascending: false });
+		for (const d of docs ?? [])
+			if (!invoice.has(d.event_id as string))
+				invoice.set(
+					d.event_id as string,
+					d as Parameters<typeof rincianInvoice>[0],
+				);
+	}
+	const booking = cocok.map((e) => {
+		const pkg = (Array.isArray(e.package) ? e.package[0] : e.package) as {
+			name?: string;
+			frame_size?: string | null;
+			category?: string | null;
+		} | null;
+		return {
+			event_id: e.id,
+			// Nomor cocok sebagai apa (audit Hermes t_288da914): vendor | client_wa | pic_wa | pemesan | extra_pic.
+			matched_by: e.cocok,
+			tanggal: e.event_date,
+			jam_mulai: e.start_time?.slice(0, 5) ?? null,
+			jam_selesai: e.end_time?.slice(0, 5) ?? null,
+			paket: pkg?.name ?? null,
+			venue: [e.venue_name, e.venue_city].filter(Boolean).join(", ") || null,
+			nama_acara: e.client_name,
+			status_bayar: STATUS_BAYAR[e.payment_status] ?? "dp",
+			lewat_vendor: e.channel === "vendor",
+			tagihan:
+				e.channel === "vendor" || e.cocok === "vendor" ? null : tagihanBot(e),
+			rincian:
+				e.channel === "vendor" || e.cocok === "vendor"
+					? null
+					: rincianInvoice(invoice.get(e.id)),
+			kurang: listMissingFields({
+				...e,
+				package_frame_size: pkg?.frame_size ?? null,
+				package_category: pkg?.category ?? null,
+			}),
+		};
+	});
 	return NextResponse.json({ ok: true, booking });
 }

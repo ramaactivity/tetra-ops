@@ -1605,3 +1605,16 @@ Kartu Telegram + lonceng begitu bukti baru masuk, dengan tombol yang sama.
 2. Tetra Ops menyediakan `POST /api/render/document` (Bearer `DOC_RENDER_API_TOKEN`): body isi dokumen + merek → PDF dengan template yang sama. Stateless — tidak menyimpan apa pun. Ketentuan tercetak persis kiriman pemanggil.
 3. Template PDF menerima merek lewat prop (`brand`) — bawaan Tetra Photobooth, jadi semua dokumen Tetra Ops tidak berubah. Merek di `src/lib/documents/brand.ts`; logo Tetra Visual diturunkan dari logo resmi website (diwarnai hitam/cream, bentuk sama).
 4. Dashboard Tetra Visual (repo tetra-visual) membangun sendiri: penyimpanan data, halaman Dokumen (QUO-TV/INV-TV/KWT-TV), daftar paket & harga, jadwal event, pencatatan pembayaran — memanggil API ini untuk PDF.
+
+## DR-068: Bot WA menerima rincian invoice terakhir, bukan cuma total
+
+**Tanggal:** 27 Nov 2026 · **Status:** diterapkan · **Pemutus:** Rama ("sesuai rekomendasi", audit janji bot)
+
+**Konteks.** 26 Nov bot bilang ke Yessi "nominal jeda 3 jamnya dihitung admin dulu, nanti aku kabari", padahal
+"Break Time Rp 300.000" sudah ada di invoice revisi. Fakta yang diterima bot dari `POST /api/bot/klien` hanya total,
+terbayar, sisa — bot tidak bisa tahu jeda sudah ditagih. Klien kecewa ("Kok dihitung lagi sih kak?").
+
+**Keputusan.** `POST /api/bot/klien` menambah `rincian` = item invoice terakhir (bukan void) per acara
+(`rincianInvoice`, src/lib/finance/tagihan.ts): nama + keterangan, qty, subtotal, diskon. `null` untuk acara lewat vendor
+atau belum ada invoice. Bot menampilkan sebagai baris fakta; aturan "jangan janjikan ulang yang sudah ada di invoice"
+ada di skill Hermes (cara-balas-wa).

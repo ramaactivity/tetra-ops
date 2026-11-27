@@ -1307,12 +1307,14 @@ curl -X POST https://booking.tetraphoto.com/api/bot/undang-vendor \
   "booking": [
     { "tanggal": "2026-11-28", "jam_mulai": "18:00", "jam_selesai": "22:00", "paket": "Unlimited Photobooth 4 Jam",
       "venue": "Gedung X, Bogor", "nama_acara": "Aisy & Raka", "status_bayar": "dp", "lewat_vendor": false,
-      "tagihan": { "total": 2000000, "terbayar": 500000, "sisa": 1500000, "status": "dp" } }
+      "tagihan": { "total": 2000000, "terbayar": 500000, "sisa": 1500000, "status": "dp" },
+      "rincian": { "invoice": "INV-TP-34-18112026", "tanggal": "2026-11-26", "item": [{ "nama": "Break Time · 1 Jam", "qty": 1, "subtotal": 300000 }], "diskon": 0 } }
   ]
 }
 ```
 - Hanya acara hari ini & mendatang (WIB), tidak dibatalkan, bukan demo; urut tanggal. Tidak ada booking → `booking: []`.
 - `status_bayar`: `belum` / `dp` / `lunas` (dari `payment_status`, dipertahankan untuk bot lama).
+- `rincian` (DR-068): item invoice terakhir (bukan void) acara itu, `null` kalau belum ada invoice atau acara lewat vendor. Supaya bot tidak menjanjikan ulang hal yang sudah masuk invoice (Yessi 26 Nov: Break Time sudah ditagih, bot bilang "nominal jeda dihitung admin").
 - `tagihan` (DR-056): rupiah bulat, rumus sama dengan guard `checkPayment` (`src/lib/finance/tagihan.ts`): `total` = grand_total dikurangi potongan vendor di muka, `terbayar` = total_paid, `sisa` = max(0, total − terbayar), `status` dihitung dari angka (`lunas` sisa 0 / `dp` / `belum`). `null` untuk acara lewat vendor (harga klien akhir = harga vendor) dan event tanpa harga.
 - `event_id` + `kurang` (DR-058): `kurang` = `listMissingFields` (`src/lib/events/tbc.ts`) — daftar label yang sama dengan banner "Data event belum lengkap", chip daftar event, crew, dan reminder H-7/H-3, urut "paling menghambat lapangan dulu". `[]` = lengkap. Dipakai bot untuk tombol "Minta data" dan saat klien membalas.
 - `matched_by` (audit Hermes t_288da914, 23 Nov): nomor cocok sebagai `vendor` (event lewat vendor & `vendor_contact`, didahulukan) · `client_wa` · `pic_wa` (termasuk telepon kontak PIC) · `pemesan` (telepon kontak pemesan) · `extra_pic` (`extra_pics[].wa`). Untuk `vendor`, `tagihan` selalu `null`; bot menyusun blok "ACARA LEWAT VENDOR/WO INI".
@@ -1397,7 +1399,7 @@ Satu jalur dengan tombol **Simpan perubahan** di Edit booking: keduanya memanggi
 
 **Error** (`{"error": "…"}`, aman diulang): tak ada perubahan (mis. revisi sudah tersimpan), durasi tak ada di pricelist (disertai daftar durasi), add-on tidak ditemukan/ambigu (disertai pilihan), validasi form Edit booking.
 
-## 24. Mesin cetak dokumen untuk lini bisnis lain — `POST /api/render/document` (DR-067)
+## 24. Mesin cetak dokumen untuk lini bisnis lain — `POST /api/render/document` (DR-068)
 
 Dashboard Tetra Visual (atau lini bisnis lain) mengirim isi dokumen, Tetra Ops mengembalikan PDF dengan template yang sama dengan dokumen Tetra Photobooth. **Stateless**: Tetra Ops tidak menyimpan dokumen, nomor, atau pembayaran, dan tidak mencatat apa pun ke buku. Penomoran, data klien, jadwal, dan pembukuan milik pemanggil.
 
